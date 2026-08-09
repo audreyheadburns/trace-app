@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Trace — food & flare journal</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2B2730">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trace">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  /* fallback fonts in case Google Fonts is blocked (e.g. offline / no network) */
+</style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --bg: #F1EFF4;
+  --surface: #FFFFFF;
+  --surface-2: #F8F6FA;
+  --border: #E2DEE9;
+  --ink: #2B2730;
+  --ink-soft: #6B6470;
+  --ink-faint: #9C97A6;
+  --flare-1: #F3D9CF; --flare-2: #E8AFA8; --flare-3: #DC8888; --flare-4: #CE6468; --flare-5: #B23C48;
+  --calm: #7C9A82;
+  --flag: #C98A3E;
+  --accent: #8B7DA8;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(43,39,48,0.04), 0 4px 16px rgba(43,39,48,0.06);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+#app{max-width:720px;margin:0 auto;padding:0 16px 90px;}
+
+header{padding:26px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:11px;}
+.brand-mark{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 32% 30%, var(--flare-2), var(--accent) 120%);flex-shrink:0;position:relative;}
+.brand-mark::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--bg);}
+.brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0;letter-spacing:-0.02em;}
+.brand .tagline{margin:2px 0 0;font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
+nav.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:12px;border:1px solid var(--border);}
+nav.tabs button{border:none;background:transparent;padding:8px 13px;border-radius:9px;font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;}
+nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+
+/* ---- day strip / calendar ---- */
+.cal-wrap{margin:4px 0 22px;}
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px 2px;}
+.timeline-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;}
+.expand-btn{border:none;background:none;color:var(--accent);font-weight:600;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;padding:4px 6px;}
+.timeline{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 10px;scrollbar-width:thin;}
+.timeline::-webkit-scrollbar{height:5px;}
+.timeline::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+.day-chip{flex-shrink:0;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 9px;border-radius:10px;border:1px solid transparent;cursor:pointer;background:var(--surface-2);}
+.day-chip.selected{border-color:var(--ink);background:var(--surface);}
+.day-chip .wd{font-size:9px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;}
+.day-chip .num{font-size:12.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--border);position:relative;}
+.dot.food-only::after{content:"";position:absolute;inset:-3px;border:1.5px solid var(--calm);border-radius:50%;opacity:.6;}
+
+.month-grid{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);margin-bottom:8px;}
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.month-nav button{border:1px solid var(--border);background:var(--surface-2);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;color:var(--ink-soft);}
+.month-nav .m-label{font-family:'Fraunces',serif;font-weight:600;font-size:15px;}
+.grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.grid7 .wd-hd{text-align:center;font-size:10px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;padding-bottom:4px;}
+.grid7 .cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:9px;cursor:pointer;border:1px solid transparent;}
+.grid7 .cell.selected{border-color:var(--ink);background:var(--surface-2);}
+.grid7 .cell.empty{cursor:default;}
+.grid7 .cell .num{font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);}
+.grid7 .cell.today .num{font-weight:700;color:var(--ink);}
+
+/* ---- panels/forms ---- */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
+.panel h2{font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin:0 0 14px;}
+.field-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.field{flex:1;min-width:120px;display:flex;flex-direction:column;gap:5px;position:relative;}
+.field label{font-size:11px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+input[type=text],input[type=date],input[type=time],textarea,select{
+  font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);border:1px solid var(--border);border-radius:9px;
+  padding:9px 11px;background:var(--surface-2);outline:none;width:100%;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);background:var(--surface);}
+textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
+.hint{font-size:11px;color:var(--ink-faint);margin-top:-4px;}
+
+.suggest-box{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-top:4px;box-shadow:var(--shadow);z-index:20;max-height:190px;overflow-y:auto;}
+.suggest-item{padding:9px 12px;font-size:13.5px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;}
+.suggest-item:hover{background:var(--surface-2);}
+.suggest-item .si-tags{font-size:10.5px;color:var(--ink-faint);}
+.suggest-new{padding:9px 12px;font-size:13px;color:var(--accent);font-weight:600;cursor:pointer;border-top:1px solid var(--border);}
+.suggest-new:hover{background:var(--surface-2);}
+
+.chip-display{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 2px;}
+.ing-chip{font-size:11.5px;padding:4px 10px;border-radius:20px;background:var(--surface-2);border:1px solid var(--border);color:var(--ink-soft);}
+.ing-chip.flagged{background:#FBF0DE;color:#8A5C1E;border-color:#EAD3A5;font-weight:600;}
+.selected-food-bar{display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;margin-top:4px;}
+.mini-link{border:none;background:none;color:var(--accent);font-weight:600;font-size:12px;cursor:pointer;padding:2px 4px;}
+
+.severity-picker{display:flex;gap:6px;}
+.sev-btn{flex:1;padding:9px 0;text-align:center;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;color:var(--ink-soft);}
+.sev-btn.active{color:#fff;border-color:transparent;}
+.sev-btn[data-sev="1"].active{background:var(--flare-1);color:var(--ink);}
+.sev-btn[data-sev="2"].active{background:var(--flare-2);color:var(--ink);}
+.sev-btn[data-sev="3"].active{background:var(--flare-3);}
+.sev-btn[data-sev="4"].active{background:var(--flare-4);}
+.sev-btn[data-sev="5"].active{background:var(--flare-5);}
+.chip-select{display:flex;gap:6px;flex-wrap:wrap;}
+.chip-opt{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);font-size:12.5px;cursor:pointer;color:var(--ink-soft);}
+.chip-opt.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+.photo-row{display:flex;align-items:center;gap:10px;margin-top:4px;}
+.photo-btn{border:1px dashed var(--border);background:var(--surface-2);border-radius:9px;padding:9px 14px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;font-weight:600;}
+.photo-preview{position:relative;}
+.photo-preview img{width:52px;height:52px;object-fit:cover;border-radius:9px;border:1px solid var(--border);}
+.photo-preview .rm{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--ink);color:#fff;border:none;font-size:10px;cursor:pointer;line-height:1;}
+
+.btn-primary{background:var(--ink);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-weight:600;font-size:14px;cursor:pointer;}
+.btn-primary:hover{background:#413c47;}
+.btn-secondary{background:var(--surface-2);color:var(--ink);border:1px solid var(--border);border-radius:9px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;}
+
+/* ---- saved foods manager ---- */
+.manager-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 0;}
+.manager-toggle h2{margin:0;}
+.manager-toggle .arrow{color:var(--ink-faint);font-size:12px;transition:transform .15s ease;}
+.manager-list{margin-top:10px;display:none;}
+.manager-list.open{display:block;}
+.mf-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-top:1px solid var(--border);}
+.mf-row:first-child{border-top:none;}
+.mf-name{font-weight:600;font-size:13.5px;}
+.mf-tags{font-size:10.5px;color:var(--ink-faint);margin-top:2px;}
+.mf-actions{display:flex;gap:4px;flex-shrink:0;}
+.icon-btn{border:none;background:var(--surface-2);border-radius:7px;width:28px;height:28px;cursor:pointer;font-size:12px;color:var(--ink-soft);}
+.icon-btn:hover{background:var(--border);}
+
+/* ---- entries ---- */
+.entry-group-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin:20px 2px 8px;}
+.entry{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start;}
+.entry.flare-entry{border-left:4px solid var(--flare-3);}
+.entry-thumb{width:44px;height:44px;border-radius:9px;object-fit:cover;flex-shrink:0;cursor:pointer;border:1px solid var(--border);}
+.entry-main{flex:1;min-width:0;}
+.entry-top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
+.entry-name{font-weight:600;font-size:14px;cursor:pointer;}
+.entry-time{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);}
+.entry-notes{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.tag{font-size:10.5px;padding:3px 8px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--border);}
+.tag.flagged{background:#FBF0DE;color:#8A5C1E;border-color:#EAD3A5;font-weight:600;}
+.sev-badge{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12.5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.del-btn{border:none;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:15px;padding:2px 5px;border-radius:6px;align-self:flex-start;}
+.del-btn:hover{background:var(--surface-2);color:var(--flare-4);}
+
+.empty-state{text-align:center;padding:32px 20px;color:var(--ink-faint);font-size:13px;}
+.empty-state .em-mark{font-size:20px;display:block;margin-bottom:8px;}
+
+/* ---- insights ---- */
+.stat-row{display:flex;gap:9px;margin-bottom:16px;}
+.stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;text-align:center;}
+.stat-box .num{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;}
+.stat-box .lbl{font-size:10.5px;color:var(--ink-soft);margin-top:2px;}
+.suspect{margin-bottom:13px;}
+.suspect-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;}
+.suspect-name{font-weight:600;}
+.suspect-pct{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);font-size:12px;}
+.bar-track{height:9px;background:var(--surface-2);border-radius:6px;overflow:hidden;position:relative;border:1px solid var(--border);}
+.bar-fill{height:100%;background:linear-gradient(90deg, var(--flag), #DDA85E);border-radius:6px 0 0 6px;}
+.bar-baseline{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.5;}
+.suspect-note{font-size:10.5px;color:var(--ink-faint);margin-top:4px;}
+.disclaimer{font-size:11.5px;color:var(--ink-faint);line-height:1.5;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-top:20px;}
+
+.tabpanel{display:none;}
+.tabpanel.active{display:block;}
+
+/* ---- modal / lightbox ---- */
+.modal-overlay{position:fixed;inset:0;background:rgba(43,39,48,0.55);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:var(--surface);border-radius:16px;max-width:420px;width:100%;overflow:hidden;box-shadow:var(--shadow);}
+.modal-box img{width:100%;display:block;max-height:60vh;object-fit:contain;background:#000;}
+.modal-info{padding:14px 16px;}
+.modal-info .mi-date{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);}
+.modal-info .mi-notes{font-size:13px;margin-top:4px;}
+.modal-close{width:100%;border:none;background:var(--surface-2);padding:12px;font-weight:600;cursor:pointer;color:var(--ink);}
+
+.edit-modal .panel{margin:0;}
+.edit-modal .modal-box{max-width:380px;padding:4px;}
+
+@media (max-width:480px){
+  .brand h1{font-size:23px;}
+  nav.tabs button{padding:7px 9px;font-size:12px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div><h1>Trace</h1><p class="tagline">food &amp; flare journal</p></div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="log">Log</button>
+      <button class="tab" data-tab="flares">Flares</button>
+      <button class="tab" data-tab="insights">Insights</button>
+    </nav>
+  </header>
+
+  <div class="cal-wrap">
+    <div class="cal-head">
+      <span class="timeline-label" id="cal-label">Last 30 days</span>
+      <button class="expand-btn" id="expand-toggle">Expand ▾</button>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <div class="month-grid" id="month-grid" style="display:none;"></div>
+  </div>
+
+  <!-- LOG TAB -->
+  <section class="tabpanel active" id="tab-log">
+    <div class="panel">
+      <h2>Log a food</h2>
+      <form id="food-form">
+        <div class="field-row">
+          <div class="field">
+            <label>Food</label>
+            <input type="text" id="f-name" placeholder="Start typing…" autocomplete="off" required>
+            <div class="suggest-box" id="f-suggest" style="display:none;"></div>
+          </div>
+        </div>
+        <div id="f-selected-wrap"></div>
+        <div id="f-ingredients-wrap" style="display:none;">
+          <div class="field-row">
+            <div class="field">
+              <label>Ingredients (comma separated)</label>
+              <textarea id="f-ingredients" placeholder="e.g. yogurt, honey, granola, almonds"></textarea>
+              <p class="hint">Saved once — next time just search this food's name.</p>
+            </div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Date</label>
+            <input type="date" id="f-date" required>
+          </div>
+          <div class="field">
+            <label>Time</label>
+            <input type="time" id="f-time">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Notes (optional)</label>
+            <input type="text" id="f-notes" placeholder="portion, how you felt, etc.">
+          </div>
+        </div>
+        <div class="photo-row" id="f-photo-row">
+          <button type="button" class="photo-btn" id="f-photo-btn">📷 Add photo</button>
+          <input type="file" accept="image/*" capture="environment" id="f-photo-input" style="display:none;">
+        </div>
+        <div style="height:14px;"></div>
+        <button type="submit" class="btn-primary">Log it</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="manager-toggle" id="mgr-toggle">
+        <h2>My foods</h2>
+        <span class="arrow" id="mgr-arrow">▾ show</span>
+      </div>
+      <div class="manager-list" id="manager-list"></div>
+    </div>
+
+    <div id="food-list"></div>
+  </section>
+
+  <!-- FLARES TAB -->
+  <section class="tabpanel" id="tab-flares">
+    <div class="panel">
+      <h2>Log a flare</h2>
+      <form id="flare-form">
+        <div class="field-row">
+          <div class="field">
+            <label>Date</label>
+            <input type="date" id="fl-date" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Severity</label>
+          <div class="severity-picker" id="sev-picker">
+            <div class="sev-btn" data-sev="1">1</div>
+            <div class="sev-btn" data-sev="2">2</div>
+            <div class="sev-btn" data-sev="3">3</div>
+            <div class="sev-btn" data-sev="4">4</div>
+            <div class="sev-btn" data-sev="5">5</div>
+          </div>
+          <p class="hint">1 = barely noticeable · 5 = worst flare</p>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label>Areas affected</label>
+          <div class="chip-select" id="area-chips">
+            <div class="chip-opt" data-area="Face">Face</div>
+            <div class="chip-opt" data-area="Chest">Chest</div>
+            <div class="chip-opt" data-area="Back">Back</div>
+            <div class="chip-opt" data-area="Hands">Hands</div>
+            <div class="chip-opt" data-area="Scalp">Scalp</div>
+            <div class="chip-opt" data-area="Other">Other</div>
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:12px;">
+          <div class="field">
+            <label>Notes (optional)</label>
+            <input type="text" id="fl-notes" placeholder="texture, suspected triggers, etc.">
+          </div>
+        </div>
+        <div class="photo-row" id="fl-photo-row">
+          <button type="button" class="photo-btn" id="fl-photo-btn">📷 Add photo</button>
+          <input type="file" accept="image/*" capture="environment" id="fl-photo-input" style="display:none;">
+        </div>
+        <div style="height:14px;"></div>
+        <button type="submit" class="btn-primary">Log flare</button>
+      </form>
+    </div>
+    <div id="flare-list"></div>
+  </section>
+
+  <!-- INSIGHTS TAB -->
+  <section class="tabpanel" id="tab-insights">
+    <div class="panel">
+      <h2>Possible suspects</h2>
+      <div class="field-row" style="align-items:flex-end;">
+        <div class="field" style="max-width:220px;">
+          <label>Look back before each flare</label>
+          <select id="lookback-select">
+            <option value="1">1 day</option>
+            <option value="2" selected>2 days</option>
+            <option value="3">3 days</option>
+          </select>
+        </div>
+      </div>
+      <div class="stat-row" id="stat-row"></div>
+      <div id="suspects"></div>
+      <div class="disclaimer">
+        This is a pattern-spotting tool, not a diagnosis. A food showing up often before flares means it's worth watching, not confirmed as the cause — reactions can lag, stack, or come from things Trace doesn't track (stress, weather, products). If flares are frequent or severe, bring this log to a dermatologist or allergist.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- lightbox -->
+<div class="modal-overlay" id="lightbox">
+  <div class="modal-box">
+    <img id="lightbox-img" src="">
+    <div class="modal-info">
+      <div class="mi-date" id="lightbox-date"></div>
+      <div class="mi-notes" id="lightbox-notes"></div>
+    </div>
+    <button class="modal-close" id="lightbox-close">Close</button>
+  </div>
+</div>
+
+<!-- edit saved food modal -->
+<div class="modal-overlay edit-modal" id="edit-modal">
+  <div class="modal-box">
+    <div class="panel" style="box-shadow:none;border:none;">
+      <h2>Edit food</h2>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="em-name">
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label>Ingredients (comma separated)</label>
+        <textarea id="em-ingredients"></textarea>
+        <p class="hint">Updates every past entry logged with this food.</p>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn-primary" id="em-save" style="flex:1;">Save changes</button>
+        <button class="btn-secondary" id="em-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- standalone storage (IndexedDB) ----------------
+   Replaces Claude's window.storage artifact API with a same-shaped
+   implementation backed by IndexedDB, so the app runs as a normal
+   website. Nothing below this block needed to change. */
+(function(){
+  const DB_NAME = 'trace-db', STORE = 'kv';
+  function openDB(){
+    return new Promise((resolve,reject)=>{
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = ()=>{ req.result.createObjectStore(STORE); };
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+  }
+  window.storage = {
+    get: async (key)=>{
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(STORE,'readonly');
+        const req = tx.objectStore(STORE).get(key);
+        req.onsuccess = ()=>{ req.result===undefined ? reject(new Error('not found')) : resolve({key,value:req.result,shared:false}); };
+        req.onerror = ()=> reject(req.error);
+      });
+    },
+    set: async (key, value)=>{
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(STORE,'readwrite');
+        tx.objectStore(STORE).put(value, key);
+        tx.oncomplete = ()=> resolve({key,value,shared:false});
+        tx.onerror = ()=> reject(tx.error);
+      });
+    },
+    delete: async (key)=>{
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(STORE,'readwrite');
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = ()=> resolve({key,deleted:true,shared:false});
+        tx.onerror = ()=> reject(tx.error);
+      });
+    },
+    list: async (prefix)=>{
+      const db = await openDB();
+      return new Promise((resolve,reject)=>{
+        const tx = db.transaction(STORE,'readonly');
+        const req = tx.objectStore(STORE).getAllKeys();
+        req.onsuccess = ()=> resolve({keys:(req.result||[]).filter(k=>!prefix||String(k).startsWith(prefix))});
+        req.onerror = ()=> reject(req.error);
+      });
+    }
+  };
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
+const TRIGGER_DICT = {
+  dairy:      {label:'Dairy', keywords:['milk','cheese','whey','casein','cream','yogurt','yoghurt','butter','lactose','ghee']},
+  gluten:     {label:'Gluten/Wheat', keywords:['wheat','gluten','barley','rye','malt','semolina','bread','pasta','cracker']},
+  sugar:      {label:'Refined sugar', keywords:['sugar','syrup','honey','dextrose','maltodextrin','corn syrup','candy','soda']},
+  nightshade: {label:'Nightshade', keywords:['tomato','potato','eggplant','aubergine','bell pepper','chili','chilli','paprika','pepper sauce']},
+  histamine:  {label:'Histamine-rich', keywords:['aged cheese','fermented','vinegar','wine','sauerkraut','kimchi','spinach','avocado','cured','smoked','kombucha','soy sauce']},
+  alcohol:    {label:'Alcohol', keywords:['wine','beer','alcohol','liquor','vodka','whiskey','whisky','rum','tequila','cocktail']},
+  caffeine:   {label:'Caffeine', keywords:['coffee','caffeine','espresso','energy drink','black tea','matcha']},
+  soy:        {label:'Soy', keywords:['soy','tofu','edamame','soybean','tempeh']},
+  additive:   {label:'Additives', keywords:['artificial','food coloring','food colouring','msg','aspartame','preservative','nitrate','nitrite']},
+  shellfish:  {label:'Shellfish', keywords:['shrimp','prawn','crab','lobster','shellfish','oyster']},
+  nuts:       {label:'Nuts', keywords:['almond','peanut','walnut','cashew','pistachio','hazelnut','pecan']},
+  iodine:     {label:'Iodine-rich', keywords:['seaweed','kelp','nori','iodized salt','iodised salt']},
+};
+
+let savedFoods = [];   // {id, name, ingredients:[], flagged:[]}
+let foodEntries = [];  // {id, savedFoodId, date, time, notes, hasPhoto}
+let flareEntries = []; // {id, date, severity, areas, notes, hasPhoto}
+const photoCache = new Map();
+
+let selectedSeverity = 3;
+let selectedAreas = new Set();
+let selectedDayFilter = null;
+let calView = 'strip'; // 'strip' | 'month'
+let calMonth = new Date();
+let pendingSelectedFoodId = null;
+let pendingFoodPhoto = null;
+let pendingFlarePhoto = null;
+let editingFoodId = null;
+
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+function showToast(msg, isError){
+  let t = document.getElementById('trace-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'trace-toast';
+    t.style.cssText = 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-family:Inter,sans-serif;z-index:9999;max-width:88%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.25);line-height:1.4;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = isError ? '#B23C48' : '#2B2730';
+  t.style.display = 'block';
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>{ t.style.display='none'; }, isError ? 6000 : 1800);
+}
+window.addEventListener('error', (e)=>{ showToast('Error: '+e.message, true); });
+window.addEventListener('unhandledrejection', (e)=>{ showToast('Error: '+(e.reason && e.reason.message ? e.reason.message : e.reason), true); });
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDateFull(d){ return new Date(d+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+
+function matchIngredients(text){
+  if(!text) return [];
+  const lower = text.toLowerCase();
+  const hits = [];
+  for(const [key,cat] of Object.entries(TRIGGER_DICT)){
+    if(cat.keywords.some(kw => lower.includes(kw))) hits.push(key);
+  }
+  return hits;
+}
+
+/* ---------------- storage ---------------- */
+async function loadData(){
+  try{ const r = await window.storage.get('trace:savedFoods', false); savedFoods = r?JSON.parse(r.value):[]; }catch(e){ savedFoods=[]; }
+  try{ const r = await window.storage.get('trace:foodEntries', false); foodEntries = r?JSON.parse(r.value):[]; }catch(e){ foodEntries=[]; }
+  try{ const r = await window.storage.get('trace:flareEntries', false); flareEntries = r?JSON.parse(r.value):[]; }catch(e){ flareEntries=[]; }
+}
+async function saveSavedFoods(){ try{ await window.storage.set('trace:savedFoods', JSON.stringify(savedFoods), false); }catch(e){ console.error('saveSavedFoods failed', e); } }
+async function saveFoodEntries(){ try{ await window.storage.set('trace:foodEntries', JSON.stringify(foodEntries), false); }catch(e){ console.error('saveFoodEntries failed', e); } }
+async function saveFlareEntries(){ try{ await window.storage.set('trace:flareEntries', JSON.stringify(flareEntries), false); }catch(e){ console.error('saveFlareEntries failed', e); } }
+
+async function savePhoto(entryId, dataUrl){
+  try{ await window.storage.set('trace:photo:'+entryId, dataUrl, false); photoCache.set(entryId, dataUrl); }
+  catch(e){ console.error('photo save failed', e); showToast('Entry saved, but the photo was too large to store.', true); }
+}
+async function getPhoto(entryId){
+  if(photoCache.has(entryId)) return photoCache.get(entryId);
+  try{ const r = await window.storage.get('trace:photo:'+entryId, false); const url = r?r.value:null; photoCache.set(entryId,url); return url; }
+  catch(e){ return null; }
+}
+async function deletePhoto(entryId){
+  try{ await window.storage.delete('trace:photo:'+entryId, false); }catch(e){}
+  photoCache.delete(entryId);
+}
+
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const maxW = 900;
+        const scale = Math.min(1, maxW/img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width*scale;
+        canvas.height = img.height*scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL('image/jpeg',0.72));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ---------------- tabs ---------------- */
+$$('.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $$('.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.tabpanel').forEach(p=>p.classList.remove('active'));
+    $('#tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'insights') renderInsights();
+  });
+});
+
+/* ---------------- calendar / strip ---------------- */
+function maxSevForDay(dateStr){
+  const dayFlares = flareEntries.filter(f=>f.date===dateStr);
+  return dayFlares.length ? Math.max(...dayFlares.map(f=>f.severity)) : 0;
+}
+function hasFoodForDay(dateStr){ return foodEntries.some(f=>f.date===dateStr); }
+
+$('#expand-toggle').addEventListener('click', ()=>{
+  calView = calView==='strip' ? 'month' : 'strip';
+  renderCalendar();
+});
+
+function renderCalendar(){
+  const label = $('#cal-label');
+  const expandBtn = $('#expand-toggle');
+  if(calView==='strip'){
+    label.textContent = 'Last 30 days';
+    expandBtn.textContent = 'Expand ▾';
+    $('#timeline').style.display='flex';
+    $('#month-grid').style.display='none';
+    renderStrip();
+  }else{
+    expandBtn.textContent = 'Collapse ▴';
+    $('#timeline').style.display='none';
+    $('#month-grid').style.display='block';
+    renderMonth();
+  }
+}
+
+function renderStrip(){
+  const el = $('#timeline');
+  el.innerHTML='';
+  const days=[];
+  for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  days.forEach(dateStr=>{
+    const dt = new Date(dateStr+'T00:00:00');
+    const sev = maxSevForDay(dateStr);
+    const food = hasFoodForDay(dateStr);
+    const chip = document.createElement('div');
+    chip.className = 'day-chip'+(selectedDayFilter===dateStr?' selected':'');
+    chip.innerHTML = `<span class="wd">${dt.toLocaleDateString('en-US',{weekday:'narrow'})}</span><span class="num">${dt.getDate()}</span><span class="dot${!sev&&food?' food-only':''}" ${sev?`style="background:var(--flare-${sev})"`:''}></span>`;
+    chip.addEventListener('click', ()=>{ selectedDayFilter = selectedDayFilter===dateStr?null:dateStr; renderCalendar(); renderFoodList(); renderFlareList(); });
+    el.appendChild(chip);
+  });
+  el.scrollLeft = el.scrollWidth;
+}
+
+function renderMonth(){
+  const el = $('#month-grid');
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  const first = new Date(y,m,1);
+  const startPad = first.getDay();
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const monthLabel = first.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const wdHds = ['S','M','T','W','T','F','S'].map(w=>`<div class="wd-hd">${w}</div>`).join('');
+  let cells = '';
+  for(let i=0;i<startPad;i++) cells += `<div class="cell empty"></div>`;
+  const todayS = todayStr();
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sev = maxSevForDay(dateStr);
+    const food = hasFoodForDay(dateStr);
+    const isToday = dateStr===todayS;
+    const isSel = dateStr===selectedDayFilter;
+    cells += `<div class="cell${isToday?' today':''}${isSel?' selected':''}" data-date="${dateStr}">
+      <span class="num">${d}</span>
+      <span class="dot${!sev&&food?' food-only':''}" ${sev?`style="background:var(--flare-${sev})"`:''}></span>
+    </div>`;
+  }
+  el.innerHTML = `
+    <div class="month-nav">
+      <button id="m-prev">‹</button>
+      <span class="m-label">${monthLabel}</span>
+      <button id="m-next">›</button>
+    </div>
+    <div class="grid7">${wdHds}${cells}</div>
+  `;
+  $('#m-prev').addEventListener('click', ()=>{ calMonth = new Date(y,m-1,1); renderMonth(); });
+  $('#m-next').addEventListener('click', ()=>{ calMonth = new Date(y,m+1,1); renderMonth(); });
+  $$('.cell[data-date]', el).forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const dateStr = c.dataset.date;
+      selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
+      renderMonth(); renderFoodList(); renderFlareList();
+    });
+  });
+}
+
+/* ---------------- food autocomplete ---------------- */
+$('#f-date').value = todayStr();
+
+function resetFoodFormSelection(){
+  pendingSelectedFoodId = null;
+  $('#f-selected-wrap').innerHTML='';
+  $('#f-ingredients-wrap').style.display='none';
+  $('#f-ingredients').value='';
+}
+
+$('#f-name').addEventListener('input', (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  resetFoodFormSelection();
+  const box = $('#f-suggest');
+  if(!q){ box.style.display='none'; return; }
+  const matches = savedFoods.filter(f=>f.name.toLowerCase().includes(q)).slice(0,6);
+  let html = matches.map(f=>`
+    <div class="suggest-item" data-id="${f.id}">
+      <span>${escapeHtml(f.name)}</span>
+      <span class="si-tags">${f.flagged.map(k=>TRIGGER_DICT[k].label).join(', ')}</span>
+    </div>`).join('');
+  const exact = savedFoods.some(f=>f.name.toLowerCase()===q);
+  if(!exact) html += `<div class="suggest-new" id="suggest-new-btn">+ Add "${escapeHtml(e.target.value.trim())}" as a new food</div>`;
+  box.innerHTML = html;
+  box.style.display = 'block';
+  $$('.suggest-item', box).forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const food = savedFoods.find(f=>f.id===item.dataset.id);
+      selectSavedFood(food);
+      box.style.display='none';
+    });
+  });
+  const newBtn = $('#suggest-new-btn');
+  if(newBtn) newBtn.addEventListener('click', ()=>{
+    $('#f-ingredients-wrap').style.display='block';
+    box.style.display='none';
+  });
+});
+$('#f-name').addEventListener('focus', (e)=>{ if(e.target.value.trim()) e.target.dispatchEvent(new Event('input')); });
+document.addEventListener('click', (e)=>{ if(!e.target.closest('#f-name') && !e.target.closest('#f-suggest')) $('#f-suggest').style.display='none'; });
+
+function selectSavedFood(food){
+  pendingSelectedFoodId = food.id;
+  $('#f-name').value = food.name;
+  $('#f-ingredients-wrap').style.display='none';
+  $('#f-selected-wrap').innerHTML = `
+    <div class="selected-food-bar">
+      <span>${food.ingredients.length? food.ingredients.length+' ingredients saved' : 'No ingredients saved yet'}</span>
+      <button type="button" class="mini-link" id="edit-selected-food">Edit</button>
+    </div>
+    <div class="chip-display">${food.ingredients.map(ing=>{
+      const flagged = food.flagged.some(key=>TRIGGER_DICT[key].keywords.some(kw=>ing.toLowerCase().includes(kw)));
+      return `<span class="ing-chip${flagged?' flagged':''}">${escapeHtml(ing)}</span>`;
+    }).join('')}</div>
+  `;
+  $('#edit-selected-food').addEventListener('click', ()=> openEditModal(food.id));
+}
+
+/* ---------------- edit saved food modal ---------------- */
+function openEditModal(foodId){
+  const food = savedFoods.find(f=>f.id===foodId);
+  if(!food) return;
+  editingFoodId = foodId;
+  $('#em-name').value = food.name;
+  $('#em-ingredients').value = food.ingredients.join(', ');
+  $('#edit-modal').classList.add('open');
+}
+$('#em-cancel').addEventListener('click', ()=> $('#edit-modal').classList.remove('open'));
+$('#em-save').addEventListener('click', async ()=>{
+  const food = savedFoods.find(f=>f.id===editingFoodId);
+  if(!food) return;
+  const name = $('#em-name').value.trim();
+  const ingredientsRaw = $('#em-ingredients').value.trim();
+  const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  food.name = name || food.name;
+  food.ingredients = ingredients;
+  food.flagged = matchIngredients(ingredientsRaw);
+  await saveSavedFoods();
+  $('#edit-modal').classList.remove('open');
+  renderManagerList();
+  renderFoodList();
+  if(pendingSelectedFoodId===food.id) selectSavedFood(food);
+});
+
+/* ---------------- food form submit ---------------- */
+$('#f-photo-btn').addEventListener('click', ()=> $('#f-photo-input').click());
+$('#f-photo-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  pendingFoodPhoto = await compressImage(file);
+  renderPendingPhotoPreview('f-photo-row','f-photo-btn', pendingFoodPhoto, ()=>{ pendingFoodPhoto=null; });
+});
+function renderPendingPhotoPreview(rowId, btnId, dataUrl, onRemove){
+  const row = $('#'+rowId);
+  const existing = row.querySelector('.photo-preview');
+  if(existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-preview';
+  wrap.innerHTML = `<img src="${dataUrl}"><button type="button" class="rm">✕</button>`;
+  wrap.querySelector('.rm').addEventListener('click', ()=>{ wrap.remove(); onRemove(); });
+  row.appendChild(wrap);
+}
+
+$('#food-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  $('#f-suggest').style.display = 'none';
+  try{
+    const typedName = $('#f-name').value.trim();
+    if(!typedName){ $('#f-name').focus(); return; }
+    let foodId = pendingSelectedFoodId;
+
+    if(!foodId){
+      const existing = savedFoods.find(f=>f.name.toLowerCase()===typedName.toLowerCase());
+      if(existing){
+        foodId = existing.id;
+      }else{
+        const ingredientsRaw = $('#f-ingredients').value.trim();
+        const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const newFood = { id: uid(), name: typedName, ingredients, flagged: matchIngredients(ingredientsRaw || typedName) };
+        savedFoods.push(newFood);
+        await saveSavedFoods();
+        foodId = newFood.id;
+      }
+    }
+
+    const entryId = uid();
+    const entry = {
+      id: entryId, savedFoodId: foodId,
+      date: $('#f-date').value || todayStr(),
+      time: $('#f-time').value || '',
+      notes: $('#f-notes').value.trim(),
+      hasPhoto: !!pendingFoodPhoto
+    };
+    foodEntries.push(entry);
+    await saveFoodEntries();
+    if(pendingFoodPhoto) await savePhoto(entryId, pendingFoodPhoto);
+
+    $('#food-form').reset();
+    $('#f-date').value = todayStr();
+    resetFoodFormSelection();
+    const preview = $('#f-photo-row .photo-preview'); if(preview) preview.remove();
+    pendingFoodPhoto = null;
+
+    renderCalendar(); renderFoodList(); renderManagerList();
+    showToast('Logged "'+typedName+'"');
+  }catch(err){
+    console.error('Food submit failed', err);
+    showToast('Could not log that food: ' + err.message, true);
+  }
+});
+
+/* ---------------- saved foods manager ---------------- */
+$('#mgr-toggle').addEventListener('click', ()=>{
+  const list = $('#manager-list');
+  const open = list.classList.toggle('open');
+  $('#mgr-arrow').textContent = open? '▴ hide' : '▾ show';
+  if(open) renderManagerList();
+});
+
+function renderManagerList(){
+  const el = $('#manager-list');
+  if(!el.classList.contains('open')) return;
+  if(savedFoods.length===0){ el.innerHTML = `<div class="empty-state">No saved foods yet — log one above to start your list.</div>`; return; }
+  const sorted = [...savedFoods].sort((a,b)=>a.name.localeCompare(b.name));
+  el.innerHTML = sorted.map(f=>`
+    <div class="mf-row">
+      <div>
+        <div class="mf-name">${escapeHtml(f.name)}</div>
+        <div class="mf-tags">${f.ingredients.length} ingredient${f.ingredients.length===1?'':'s'}${f.flagged.length? ' · '+f.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):''}</div>
+      </div>
+      <div class="mf-actions">
+        <button class="icon-btn" data-edit="${f.id}" title="Edit">✎</button>
+        <button class="icon-btn" data-del="${f.id}" title="Delete">✕</button>
+      </div>
+    </div>
+  `).join('');
+  $$('[data-edit]', el).forEach(b=> b.addEventListener('click', ()=> openEditModal(b.dataset.edit)));
+  $$('[data-del]', el).forEach(b=> b.addEventListener('click', async ()=>{
+    const inUse = foodEntries.some(e=>e.savedFoodId===b.dataset.del);
+    if(inUse){ showToast("This food is used in past entries — delete those entries first.", true); return; }
+    savedFoods = savedFoods.filter(f=>f.id!==b.dataset.del);
+    await saveSavedFoods();
+    renderManagerList();
+  }));
+}
+
+/* ---------------- food list ---------------- */
+async function renderFoodList(){
+  const el = $('#food-list');
+  el.innerHTML='';
+  let list = [...foodEntries].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  if(selectedDayFilter) list = list.filter(f=>f.date===selectedDayFilter);
+  if(list.length===0){
+    el.innerHTML = `<div class="empty-state"><span class="em-mark">🍽</span>${selectedDayFilter?'No foods logged that day.':'Nothing logged yet — add your first food above.'}</div>`;
+    return;
+  }
+  let lastDate=null;
+  for(const entry of list){
+    const food = savedFoods.find(f=>f.id===entry.savedFoodId);
+    if(entry.date!==lastDate){
+      const lbl=document.createElement('div'); lbl.className='entry-group-label'; lbl.textContent=fmtDateFull(entry.date);
+      el.appendChild(lbl); lastDate=entry.date;
+    }
+    const div = document.createElement('div');
+    div.className='entry';
+    let thumbHtml='';
+    if(entry.hasPhoto){
+      const url = await getPhoto(entry.id);
+      if(url) thumbHtml = `<img class="entry-thumb" data-photo="${entry.id}" src="${url}">`;
+    }
+    div.innerHTML = `
+      ${thumbHtml}
+      <div class="entry-main">
+        <div class="entry-top">
+          <span class="entry-name" data-editfood="${food?food.id:''}">${escapeHtml(food?food.name:'(deleted food)')}</span>
+          ${entry.time?`<span class="entry-time">${entry.time}</span>`:''}
+        </div>
+        ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
+        <div class="tag-row">${food?food.ingredients.map(ing=>{
+          const flagged = food.flagged.some(key=>TRIGGER_DICT[key].keywords.some(kw=>ing.toLowerCase().includes(kw)));
+          return `<span class="tag${flagged?' flagged':''}">${escapeHtml(ing)}</span>`;
+        }).join(''):''}</div>
+      </div>
+      <button class="del-btn" data-id="${entry.id}" title="Delete">✕</button>
+    `;
+    div.querySelector('.del-btn').addEventListener('click', async ()=>{
+      foodEntries = foodEntries.filter(f=>f.id!==entry.id);
+      await saveFoodEntries();
+      if(entry.hasPhoto) await deletePhoto(entry.id);
+      renderCalendar(); renderFoodList();
+    });
+    const nameEl = div.querySelector('[data-editfood]');
+    if(food) nameEl.addEventListener('click', ()=> openEditModal(food.id));
+    const thumb = div.querySelector('.entry-thumb');
+    if(thumb) thumb.addEventListener('click', async ()=> openLightbox(await getPhoto(entry.id), fmtDateFull(entry.date), entry.notes));
+    el.appendChild(div);
+  }
+}
+
+/* ---------------- flare form ---------------- */
+$('#fl-date').value = todayStr();
+$('#sev-picker').addEventListener('click',(e)=>{
+  const btn = e.target.closest('.sev-btn'); if(!btn) return;
+  selectedSeverity = parseInt(btn.dataset.sev,10);
+  $$('.sev-btn').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.sev,10)===selectedSeverity));
+});
+$$('.sev-btn').forEach(b=>{ if(parseInt(b.dataset.sev,10)===selectedSeverity) b.classList.add('active'); });
+$('#area-chips').addEventListener('click',(e)=>{
+  const chip = e.target.closest('.chip-opt'); if(!chip) return;
+  const area = chip.dataset.area;
+  if(selectedAreas.has(area)){ selectedAreas.delete(area); chip.classList.remove('active'); }
+  else{ selectedAreas.add(area); chip.classList.add('active'); }
+});
+$('#fl-photo-btn').addEventListener('click', ()=> $('#fl-photo-input').click());
+$('#fl-photo-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  pendingFlarePhoto = await compressImage(file);
+  renderPendingPhotoPreview('fl-photo-row','fl-photo-btn', pendingFlarePhoto, ()=>{ pendingFlarePhoto=null; });
+});
+
+$('#flare-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+  try{
+    const entryId = uid();
+    flareEntries.push({
+      id: entryId, date: $('#fl-date').value || todayStr(), severity: selectedSeverity,
+      areas: Array.from(selectedAreas), notes: $('#fl-notes').value.trim(), hasPhoto: !!pendingFlarePhoto
+    });
+    await saveFlareEntries();
+    if(pendingFlarePhoto) await savePhoto(entryId, pendingFlarePhoto);
+    $('#flare-form').reset();
+    $('#fl-date').value = todayStr();
+    selectedAreas = new Set();
+    $$('.chip-opt').forEach(c=>c.classList.remove('active'));
+    const preview = $('#fl-photo-row .photo-preview'); if(preview) preview.remove();
+    pendingFlarePhoto = null;
+    renderCalendar(); renderFlareList();
+    showToast('Flare logged');
+  }catch(err){
+    console.error('Flare submit failed', err);
+    showToast('Could not log that flare: ' + err.message, true);
+  }
+});
+
+async function renderFlareList(){
+  const el = $('#flare-list');
+  el.innerHTML='';
+  let list = [...flareEntries].sort((a,b)=>b.date.localeCompare(a.date));
+  if(selectedDayFilter) list = list.filter(f=>f.date===selectedDayFilter);
+  if(list.length===0){
+    el.innerHTML = `<div class="empty-state"><span class="em-mark">📍</span>${selectedDayFilter?'No flare logged that day.':'No flares logged yet.'}</div>`;
+    return;
+  }
+  for(const entry of list){
+    const div = document.createElement('div');
+    div.className='entry flare-entry';
+    let thumbHtml='';
+    if(entry.hasPhoto){ const url = await getPhoto(entry.id); if(url) thumbHtml = `<img class="entry-thumb" src="${url}">`; }
+    div.innerHTML = `
+      <div class="sev-badge" style="background:var(--flare-${entry.severity})">${entry.severity}</div>
+      ${thumbHtml}
+      <div class="entry-main">
+        <div class="entry-top"><span class="entry-name" style="cursor:default;">${fmtDateFull(entry.date)}</span></div>
+        ${entry.areas.length?`<div class="tag-row">${entry.areas.map(a=>`<span class="tag">${a}</span>`).join('')}</div>`:''}
+        ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
+      </div>
+      <button class="del-btn" data-id="${entry.id}" title="Delete">✕</button>
+    `;
+    div.querySelector('.del-btn').addEventListener('click', async ()=>{
+      flareEntries = flareEntries.filter(f=>f.id!==entry.id);
+      await saveFlareEntries();
+      if(entry.hasPhoto) await deletePhoto(entry.id);
+      renderCalendar(); renderFlareList();
+    });
+    const thumb = div.querySelector('.entry-thumb');
+    if(thumb) thumb.addEventListener('click', async ()=> openLightbox(await getPhoto(entry.id), fmtDateFull(entry.date), entry.notes));
+    el.appendChild(div);
+  }
+}
+
+/* ---------------- lightbox ---------------- */
+function openLightbox(url, dateLabel, notes){
+  if(!url) return;
+  $('#lightbox-img').src = url;
+  $('#lightbox-date').textContent = dateLabel;
+  $('#lightbox-notes').textContent = notes || '';
+  $('#lightbox').classList.add('open');
+}
+$('#lightbox-close').addEventListener('click', ()=> $('#lightbox').classList.remove('open'));
+$('#lightbox').addEventListener('click', (e)=>{ if(e.target.id==='lightbox') $('#lightbox').classList.remove('open'); });
+
+/* ---------------- insights ---------------- */
+$('#lookback-select').addEventListener('change', renderInsights);
+function dateMinus(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+
+function renderInsights(){
+  const totalDaysLogged = new Set(foodEntries.map(f=>f.date)).size;
+  $('#stat-row').innerHTML = `
+    <div class="stat-box"><div class="num">${foodEntries.length}</div><div class="lbl">foods logged</div></div>
+    <div class="stat-box"><div class="num">${flareEntries.length}</div><div class="lbl">flares logged</div></div>
+    <div class="stat-box"><div class="num">${totalDaysLogged}</div><div class="lbl">days with food logs</div></div>
+  `;
+  const suspectsEl = $('#suspects');
+  if(flareEntries.length<2 || foodEntries.length<3){
+    suspectsEl.innerHTML = `<div class="empty-state"><span class="em-mark">🔎</span>Log a few more foods and at least 2 flares and Trace will start surfacing patterns here.</div>`;
+    return;
+  }
+  const lookback = parseInt($('#lookback-select').value,10);
+  const allLoggedDates = Array.from(new Set(foodEntries.map(f=>f.date)));
+  const itemsByDay = {};
+  allLoggedDates.forEach(d=>{ itemsByDay[d]=new Set(); });
+  foodEntries.forEach(e=>{
+    const food = savedFoods.find(f=>f.id===e.savedFoodId);
+    if(!food) return;
+    itemsByDay[e.date].add('food::'+food.name.trim().toLowerCase());
+    food.flagged.forEach(cat=> itemsByDay[e.date].add('cat::'+cat));
+  });
+  const baselineCount = {};
+  allLoggedDates.forEach(d=>{ itemsByDay[d].forEach(item=>{ baselineCount[item]=(baselineCount[item]||0)+1; }); });
+  const flareHitCount = {};
+  flareEntries.forEach(fl=>{
+    const windowDays=[]; for(let i=1;i<=lookback;i++) windowDays.push(dateMinus(fl.date,i));
+    const seen = new Set();
+    windowDays.forEach(d=>{ if(itemsByDay[d]) itemsByDay[d].forEach(item=>seen.add(item)); });
+    seen.forEach(item=>{ flareHitCount[item]=(flareHitCount[item]||0)+1; });
+  });
+  const items = Object.keys(flareHitCount).map(item=>{
+    const [type,key] = item.split('::');
+    const label = type==='cat'? TRIGGER_DICT[key].label : (key.charAt(0).toUpperCase()+key.slice(1));
+    const flareRate = flareHitCount[item]/flareEntries.length;
+    const baseRate = (baselineCount[item]||0)/allLoggedDates.length;
+    return {item,type,label,hits:flareHitCount[item],flareRate,baseRate,lift:flareRate-baseRate};
+  }).filter(x=> x.hits>=2 || (x.hits>=1 && flareEntries.length<=2))
+    .sort((a,b)=> b.lift-a.lift || b.hits-a.hits)
+    .slice(0,8);
+
+  if(items.length===0){
+    suspectsEl.innerHTML = `<div class="empty-state"><span class="em-mark">🔎</span>No repeat foods showed up before your flares yet within this window — try a longer look-back or keep logging.</div>`;
+    return;
+  }
+  suspectsEl.innerHTML = items.map(x=>`
+    <div class="suspect">
+      <div class="suspect-head">
+        <span class="suspect-name">${escapeHtml(x.label)}${x.type==='cat'?' <span style="color:var(--ink-faint);font-weight:400;">(category)</span>':''}</span>
+        <span class="suspect-pct">${Math.round(x.flareRate*100)}% of flares</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${Math.round(x.flareRate*100)}%"></div>
+        <div class="bar-baseline" style="left:${Math.round(x.baseRate*100)}%"></div>
+      </div>
+      <div class="suspect-note">Appeared before ${x.hits} of ${flareEntries.length} flares · your usual day-rate is ${Math.round(x.baseRate*100)}%</div>
+    </div>
+  `).join('');
+}
+
+/* ---------------- init ---------------- */
+(async function init(){
+  try{
+    if(!window.storage) showToast('Storage not available — entries will only last this session.', true);
+    await loadData();
+    renderCalendar();
+    renderFoodList();
+    renderFlareList();
+  }catch(err){
+    console.error('Init failed', err);
+    showToast('App failed to start: ' + err.message, true);
+  }
+})();
+</script>
+</body>
+</html>
