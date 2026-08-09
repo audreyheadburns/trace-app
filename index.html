@@ -313,17 +313,6 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
           </div>
           <p class="hint">1 = barely noticeable · 5 = worst flare</p>
         </div>
-        <div class="field" style="margin-top:12px;">
-          <label>Areas affected</label>
-          <div class="chip-select" id="area-chips">
-            <div class="chip-opt" data-area="Face">Face</div>
-            <div class="chip-opt" data-area="Chest">Chest</div>
-            <div class="chip-opt" data-area="Back">Back</div>
-            <div class="chip-opt" data-area="Hands">Hands</div>
-            <div class="chip-opt" data-area="Scalp">Scalp</div>
-            <div class="chip-opt" data-area="Other">Other</div>
-          </div>
-        </div>
         <div class="field-row" style="margin-top:12px;">
           <div class="field">
             <label>Notes (optional)</label>
@@ -525,7 +514,6 @@ let allergies = [];    // string[]
 const photoCache = new Map();
 
 let selectedSeverity = 3;
-let selectedAreas = new Set();
 let selectedDayFilter = null;
 let calView = 'strip'; // 'strip' | 'month'
 let calMonth = new Date();
@@ -988,12 +976,6 @@ $('#sev-picker').addEventListener('click',(e)=>{
   $$('.sev-btn').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.sev,10)===selectedSeverity));
 });
 $$('.sev-btn').forEach(b=>{ if(parseInt(b.dataset.sev,10)===selectedSeverity) b.classList.add('active'); });
-$('#area-chips').addEventListener('click',(e)=>{
-  const chip = e.target.closest('.chip-opt'); if(!chip) return;
-  const area = chip.dataset.area;
-  if(selectedAreas.has(area)){ selectedAreas.delete(area); chip.classList.remove('active'); }
-  else{ selectedAreas.add(area); chip.classList.add('active'); }
-});
 $('#fl-photo-btn').addEventListener('click', ()=> $('#fl-photo-input').click());
 $('#fl-photo-input').addEventListener('change', async (e)=>{
   const file = e.target.files[0]; if(!file) return;
@@ -1008,14 +990,12 @@ $('#flare-form').addEventListener('submit', async (e)=>{
     const entryId = uid();
     flareEntries.push({
       id: entryId, date: $('#fl-date').value || todayStr(), severity: selectedSeverity,
-      areas: Array.from(selectedAreas), notes: $('#fl-notes').value.trim(), hasPhoto: !!pendingFlarePhoto
+      areas: [], notes: $('#fl-notes').value.trim(), hasPhoto: !!pendingFlarePhoto
     });
     await saveFlareEntries();
     if(pendingFlarePhoto) await savePhoto(entryId, pendingFlarePhoto);
     $('#flare-form').reset();
     $('#fl-date').value = todayStr();
-    selectedAreas = new Set();
-    $$('.chip-opt').forEach(c=>c.classList.remove('active'));
     const preview = $('#fl-photo-row .photo-preview'); if(preview) preview.remove();
     pendingFlarePhoto = null;
     renderCalendar(); renderFlareList();
@@ -1045,7 +1025,6 @@ async function renderFlareList(){
       ${thumbHtml}
       <div class="entry-main">
         <div class="entry-top"><span class="entry-name" style="cursor:default;">${fmtDateFull(entry.date)}</span></div>
-        ${entry.areas.length?`<div class="tag-row">${entry.areas.map(a=>`<span class="tag">${a}</span>`).join('')}</div>`:''}
         ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
       </div>
       <button class="del-btn" data-id="${entry.id}" title="Delete">✕</button>
@@ -1225,9 +1204,9 @@ function buildExportMarkdown(from, to){
   md += `## Flares logged (${flaresInRange.length})\n`;
   if(flaresInRange.length===0) md += '_None in this range._\n';
   else{
-    md += '| Date | Severity (1-5) | Areas | Notes |\n|---|---|---|---|\n';
+    md += '| Date | Severity (1-5) | Notes |\n|---|---|---|\n';
     flaresInRange.forEach(f=>{
-      md += `| ${f.date} | ${f.severity} | ${mdEscape(f.areas.join(', '))} | ${mdEscape(f.notes)} |\n`;
+      md += `| ${f.date} | ${f.severity} | ${mdEscape(f.notes)} |\n`;
     });
   }
   return md;
