@@ -60,8 +60,22 @@ nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var
 .day-chip.selected{border-color:var(--ink);background:var(--surface);}
 .day-chip .wd{font-size:9px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;}
 .day-chip .num{font-size:12.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--border);position:relative;}
-.dot.food-only::after{content:"";position:absolute;inset:-3px;border:1.5px solid var(--calm);border-radius:50%;opacity:.6;}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--border);}
+.day-marks{display:flex;align-items:center;justify-content:center;gap:3px;}
+.food-mark{font-size:8px;line-height:1;}
+
+.allergy-chip{display:inline-flex;align-items:center;gap:5px;background:#FBEAF0;color:#72243E;font-size:11.5px;padding:4px 10px 4px 12px;border-radius:20px;border:1px solid #F4C0D1;}
+.allergy-chip button{border:none;background:none;color:#72243E;cursor:pointer;font-size:11px;padding:0;line-height:1;}
+.tag.allergy, .ing-chip.allergy{background:#FBEAF0;color:#72243E;border-color:#F4C0D1;font-weight:700;}
+.suspect.allergy-hit{background:#FBEAF0;border-radius:10px;padding:8px 10px;margin:0 -10px 13px;}
+.suspect-warn{color:#993556;font-size:10.5px;font-weight:600;}
+
+.range-chip{font-size:10.5px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;color:var(--ink-soft);}
+.range-chip.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.export-actions{display:flex;gap:8px;margin-top:12px;}
+
+.mf-cat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.06em;margin:14px 0 4px;}
+.mf-cat-label:first-child{margin-top:0;}
 
 .month-grid{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);margin-bottom:8px;}
 .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
@@ -330,6 +344,18 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   <!-- INSIGHTS TAB -->
   <section class="tabpanel" id="tab-insights">
     <div class="panel">
+      <h2>My allergies</h2>
+      <div class="chip-select" id="allergy-list" style="margin-bottom:10px;"></div>
+      <div class="field-row">
+        <div class="field">
+          <input type="text" id="allergy-input" placeholder="Add an allergy or sensitivity">
+        </div>
+        <button class="btn-primary" id="allergy-add" type="button">Add</button>
+      </div>
+      <p class="hint">Ingredients matching this list get flagged in your logs, separate from the auto-detected categories below.</p>
+    </div>
+
+    <div class="panel">
       <h2>Possible suspects</h2>
       <div class="field-row" style="align-items:flex-end;">
         <div class="field" style="max-width:220px;">
@@ -345,6 +371,30 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       <div id="suspects"></div>
       <div class="disclaimer">
         This is a pattern-spotting tool, not a diagnosis. A food showing up often before flares means it's worth watching, not confirmed as the cause — reactions can lag, stack, or come from things Trace doesn't track (stress, weather, products). If flares are frequent or severe, bring this log to a dermatologist or allergist.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Export data</h2>
+      <div class="field-row">
+        <div class="field">
+          <label>From</label>
+          <input type="date" id="export-from">
+        </div>
+        <div class="field">
+          <label>To</label>
+          <input type="date" id="export-to">
+        </div>
+      </div>
+      <div class="chip-select" id="export-range-chips">
+        <span class="range-chip" data-range="7">Last 7 days</span>
+        <span class="range-chip active" data-range="30">Last 30 days</span>
+        <span class="range-chip" data-range="all">All time</span>
+      </div>
+      <p class="hint">Foods, ingredients, and flares in this range, plus your allergy list. Photos aren't included.</p>
+      <div class="export-actions">
+        <button class="btn-primary" id="export-copy" type="button" style="flex:1;">Copy for chat</button>
+        <button class="btn-secondary" id="export-download" type="button">Download .txt</button>
       </div>
     </div>
   </section>
@@ -376,6 +426,15 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
         <label>Ingredients (comma separated)</label>
         <textarea id="em-ingredients"></textarea>
         <p class="hint">Updates every past entry logged with this food.</p>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label>Category</label>
+        <input type="text" id="em-category" list="category-list" placeholder="e.g. Breakfast, Dessert, Drinks">
+        <datalist id="category-list">
+          <option value="Breakfast"><option value="Lunch"><option value="Dinner">
+          <option value="Dessert"><option value="Drinks"><option value="Snacks">
+          <option value="Asian"><option value="Uncategorized">
+        </datalist>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn-primary" id="em-save" style="flex:1;">Save changes</button>
@@ -459,9 +518,10 @@ const TRIGGER_DICT = {
   iodine:     {label:'Iodine-rich', keywords:['seaweed','kelp','nori','iodized salt','iodised salt']},
 };
 
-let savedFoods = [];   // {id, name, ingredients:[], flagged:[]}
+let savedFoods = [];   // {id, name, ingredients:[], flagged:[], category}
 let foodEntries = [];  // {id, savedFoodId, date, time, notes, hasPhoto}
 let flareEntries = []; // {id, date, severity, areas, notes, hasPhoto}
+let allergies = [];    // string[]
 const photoCache = new Map();
 
 let selectedSeverity = 3;
@@ -509,15 +569,23 @@ function matchIngredients(text){
   return hits;
 }
 
+function matchAllergies(text){
+  if(!text || allergies.length===0) return [];
+  const lower = text.toLowerCase();
+  return allergies.filter(a => a.trim() && lower.includes(a.trim().toLowerCase()));
+}
+
 /* ---------------- storage ---------------- */
 async function loadData(){
   try{ const r = await window.storage.get('trace:savedFoods', false); savedFoods = r?JSON.parse(r.value):[]; }catch(e){ savedFoods=[]; }
   try{ const r = await window.storage.get('trace:foodEntries', false); foodEntries = r?JSON.parse(r.value):[]; }catch(e){ foodEntries=[]; }
   try{ const r = await window.storage.get('trace:flareEntries', false); flareEntries = r?JSON.parse(r.value):[]; }catch(e){ flareEntries=[]; }
+  try{ const r = await window.storage.get('trace:allergies', false); allergies = r?JSON.parse(r.value):[]; }catch(e){ allergies=[]; }
 }
 async function saveSavedFoods(){ try{ await window.storage.set('trace:savedFoods', JSON.stringify(savedFoods), false); }catch(e){ console.error('saveSavedFoods failed', e); } }
 async function saveFoodEntries(){ try{ await window.storage.set('trace:foodEntries', JSON.stringify(foodEntries), false); }catch(e){ console.error('saveFoodEntries failed', e); } }
 async function saveFlareEntries(){ try{ await window.storage.set('trace:flareEntries', JSON.stringify(flareEntries), false); }catch(e){ console.error('saveFlareEntries failed', e); } }
+async function saveAllergies(){ try{ await window.storage.set('trace:allergies', JSON.stringify(allergies), false); }catch(e){ console.error('saveAllergies failed', e); } }
 
 async function savePhoto(entryId, dataUrl){
   try{ await window.storage.set('trace:photo:'+entryId, dataUrl, false); photoCache.set(entryId, dataUrl); }
@@ -563,7 +631,7 @@ $$('.tabs button').forEach(btn=>{
     btn.classList.add('active');
     $$('.tabpanel').forEach(p=>p.classList.remove('active'));
     $('#tab-'+btn.dataset.tab).classList.add('active');
-    if(btn.dataset.tab === 'insights') renderInsights();
+    if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); }
   });
 });
 
@@ -607,7 +675,7 @@ function renderStrip(){
     const food = hasFoodForDay(dateStr);
     const chip = document.createElement('div');
     chip.className = 'day-chip'+(selectedDayFilter===dateStr?' selected':'');
-    chip.innerHTML = `<span class="wd">${dt.toLocaleDateString('en-US',{weekday:'narrow'})}</span><span class="num">${dt.getDate()}</span><span class="dot${!sev&&food?' food-only':''}" ${sev?`style="background:var(--flare-${sev})"`:''}></span>`;
+    chip.innerHTML = `<span class="wd">${dt.toLocaleDateString('en-US',{weekday:'narrow'})}</span><span class="num">${dt.getDate()}</span><span class="day-marks"><span class="dot" ${sev?`style="background:var(--flare-${sev})"`:''}></span>${food?'<span class="food-mark">🍴</span>':''}</span>`;
     chip.addEventListener('click', ()=>{ selectedDayFilter = selectedDayFilter===dateStr?null:dateStr; renderCalendar(); renderFoodList(); renderFlareList(); });
     el.appendChild(chip);
   });
@@ -633,7 +701,7 @@ function renderMonth(){
     const isSel = dateStr===selectedDayFilter;
     cells += `<div class="cell${isToday?' today':''}${isSel?' selected':''}" data-date="${dateStr}">
       <span class="num">${d}</span>
-      <span class="dot${!sev&&food?' food-only':''}" ${sev?`style="background:var(--flare-${sev})"`:''}></span>
+      <span class="day-marks"><span class="dot" ${sev?`style="background:var(--flare-${sev})"`:''}></span>${food?'<span class="food-mark">🍴</span>':''}</span>
     </div>`;
   }
   el.innerHTML = `
@@ -706,8 +774,9 @@ function selectSavedFood(food){
       <button type="button" class="mini-link" id="edit-selected-food">Edit</button>
     </div>
     <div class="chip-display">${food.ingredients.map(ing=>{
+      const isAllergy = matchAllergies(ing).length>0;
       const flagged = food.flagged.some(key=>TRIGGER_DICT[key].keywords.some(kw=>ing.toLowerCase().includes(kw)));
-      return `<span class="ing-chip${flagged?' flagged':''}">${escapeHtml(ing)}</span>`;
+      return `<span class="ing-chip${isAllergy?' allergy':(flagged?' flagged':'')}">${escapeHtml(ing)}</span>`;
     }).join('')}</div>
   `;
   $('#edit-selected-food').addEventListener('click', ()=> openEditModal(food.id));
@@ -720,6 +789,7 @@ function openEditModal(foodId){
   editingFoodId = foodId;
   $('#em-name').value = food.name;
   $('#em-ingredients').value = food.ingredients.join(', ');
+  $('#em-category').value = food.category || '';
   $('#edit-modal').classList.add('open');
 }
 $('#em-cancel').addEventListener('click', ()=> $('#edit-modal').classList.remove('open'));
@@ -732,6 +802,7 @@ $('#em-save').addEventListener('click', async ()=>{
   food.name = name || food.name;
   food.ingredients = ingredients;
   food.flagged = matchIngredients(ingredientsRaw);
+  food.category = $('#em-category').value.trim() || 'Uncategorized';
   await saveSavedFoods();
   $('#edit-modal').classList.remove('open');
   renderManagerList();
@@ -774,7 +845,7 @@ $('#food-form').addEventListener('submit', async (e)=>{
       }else{
         const ingredientsRaw = $('#f-ingredients').value.trim();
         const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
-        const newFood = { id: uid(), name: typedName, ingredients, flagged: matchIngredients(ingredientsRaw || typedName) };
+        const newFood = { id: uid(), name: typedName, ingredients, flagged: matchIngredients(ingredientsRaw || typedName), category: 'Uncategorized' };
         savedFoods.push(newFood);
         await saveSavedFoods();
         foodId = newFood.id;
@@ -819,19 +890,32 @@ function renderManagerList(){
   const el = $('#manager-list');
   if(!el.classList.contains('open')) return;
   if(savedFoods.length===0){ el.innerHTML = `<div class="empty-state">No saved foods yet — log one above to start your list.</div>`; return; }
-  const sorted = [...savedFoods].sort((a,b)=>a.name.localeCompare(b.name));
-  el.innerHTML = sorted.map(f=>`
-    <div class="mf-row">
-      <div>
-        <div class="mf-name">${escapeHtml(f.name)}</div>
-        <div class="mf-tags">${f.ingredients.length} ingredient${f.ingredients.length===1?'':'s'}${f.flagged.length? ' · '+f.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):''}</div>
+  const groups = {};
+  savedFoods.forEach(f=>{
+    const cat = f.category || 'Uncategorized';
+    (groups[cat] = groups[cat] || []).push(f);
+  });
+  const catNames = Object.keys(groups).sort((a,b)=>{
+    if(a==='Uncategorized') return 1;
+    if(b==='Uncategorized') return -1;
+    return a.localeCompare(b);
+  });
+  el.innerHTML = catNames.map(cat=>{
+    const items = [...groups[cat]].sort((a,b)=>a.name.localeCompare(b.name));
+    const rows = items.map(f=>`
+      <div class="mf-row">
+        <div>
+          <div class="mf-name">${escapeHtml(f.name)}</div>
+          <div class="mf-tags">${f.ingredients.length} ingredient${f.ingredients.length===1?'':'s'}${f.flagged.length? ' · '+f.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):''}</div>
+        </div>
+        <div class="mf-actions">
+          <button class="icon-btn" data-edit="${f.id}" title="Edit">✎</button>
+          <button class="icon-btn" data-del="${f.id}" title="Delete">✕</button>
+        </div>
       </div>
-      <div class="mf-actions">
-        <button class="icon-btn" data-edit="${f.id}" title="Edit">✎</button>
-        <button class="icon-btn" data-del="${f.id}" title="Delete">✕</button>
-      </div>
-    </div>
-  `).join('');
+    `).join('');
+    return `<div class="mf-cat-label">${escapeHtml(cat)}</div>${rows}`;
+  }).join('');
   $$('[data-edit]', el).forEach(b=> b.addEventListener('click', ()=> openEditModal(b.dataset.edit)));
   $$('[data-del]', el).forEach(b=> b.addEventListener('click', async ()=>{
     const inUse = foodEntries.some(e=>e.savedFoodId===b.dataset.del);
@@ -875,8 +959,9 @@ async function renderFoodList(){
         </div>
         ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
         <div class="tag-row">${food?food.ingredients.map(ing=>{
+          const isAllergy = matchAllergies(ing).length>0;
           const flagged = food.flagged.some(key=>TRIGGER_DICT[key].keywords.some(kw=>ing.toLowerCase().includes(kw)));
-          return `<span class="tag${flagged?' flagged':''}">${escapeHtml(ing)}</span>`;
+          return `<span class="tag${isAllergy?' allergy':(flagged?' flagged':'')}">${escapeHtml(ing)}</span>`;
         }).join(''):''}</div>
       </div>
       <button class="del-btn" data-id="${entry.id}" title="Delete">✕</button>
@@ -988,6 +1073,32 @@ function openLightbox(url, dateLabel, notes){
 $('#lightbox-close').addEventListener('click', ()=> $('#lightbox').classList.remove('open'));
 $('#lightbox').addEventListener('click', (e)=>{ if(e.target.id==='lightbox') $('#lightbox').classList.remove('open'); });
 
+/* ---------------- allergies ---------------- */
+function renderAllergyList(){
+  const el = $('#allergy-list');
+  if(allergies.length===0){ el.innerHTML = `<span class="hint" style="margin:0;">No allergies added yet.</span>`; return; }
+  el.innerHTML = allergies.map((a,i)=>`<span class="allergy-chip">${escapeHtml(a)}<button type="button" data-idx="${i}">✕</button></span>`).join('');
+  $$('button[data-idx]', el).forEach(b=> b.addEventListener('click', async ()=>{
+    allergies.splice(parseInt(b.dataset.idx,10),1);
+    await saveAllergies();
+    renderAllergyList();
+    renderFoodList();
+    renderInsights();
+  }));
+}
+$('#allergy-add').addEventListener('click', addAllergy);
+$('#allergy-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); addAllergy(); } });
+async function addAllergy(){
+  const val = $('#allergy-input').value.trim();
+  if(!val) return;
+  allergies.push(val);
+  await saveAllergies();
+  $('#allergy-input').value = '';
+  renderAllergyList();
+  renderFoodList();
+  renderInsights();
+}
+
 /* ---------------- insights ---------------- */
 $('#lookback-select').addEventListener('change', renderInsights);
 function dateMinus(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
@@ -1037,8 +1148,15 @@ function renderInsights(){
     suspectsEl.innerHTML = `<div class="empty-state"><span class="em-mark">🔎</span>No repeat foods showed up before your flares yet within this window — try a longer look-back or keep logging.</div>`;
     return;
   }
-  suspectsEl.innerHTML = items.map(x=>`
-    <div class="suspect">
+  suspectsEl.innerHTML = items.map(x=>{
+    const allergyHit = allergies.some(a=>{
+      const al = a.trim().toLowerCase(); if(!al) return false;
+      if(x.label.toLowerCase().includes(al)) return true;
+      if(x.type==='cat'){ const catKey = x.item.split('::')[1]; return TRIGGER_DICT[catKey].keywords.some(kw=>kw.includes(al)||al.includes(kw)); }
+      return false;
+    });
+    return `
+    <div class="suspect${allergyHit?' allergy-hit':''}">
       <div class="suspect-head">
         <span class="suspect-name">${escapeHtml(x.label)}${x.type==='cat'?' <span style="color:var(--ink-faint);font-weight:400;">(category)</span>':''}</span>
         <span class="suspect-pct">${Math.round(x.flareRate*100)}% of flares</span>
@@ -1048,9 +1166,106 @@ function renderInsights(){
         <div class="bar-baseline" style="left:${Math.round(x.baseRate*100)}%"></div>
       </div>
       <div class="suspect-note">Appeared before ${x.hits} of ${flareEntries.length} flares · your usual day-rate is ${Math.round(x.baseRate*100)}%</div>
+      ${allergyHit?'<div class="suspect-warn">⚠ Also matches something on your allergy list</div>':''}
     </div>
-  `).join('');
+  `;}).join('');
 }
+
+/* ---------------- export ---------------- */
+let exportMode = '30';
+function computeExportRange(){
+  const today = todayStr();
+  if(exportMode==='7') return { from: dateMinus(today,7), to: today };
+  if(exportMode==='30') return { from: dateMinus(today,30), to: today };
+  if(exportMode==='all'){
+    const allDates = [...foodEntries.map(f=>f.date), ...flareEntries.map(f=>f.date)];
+    const earliest = allDates.length ? allDates.sort()[0] : today;
+    return { from: earliest, to: today };
+  }
+  return { from: $('#export-from').value || today, to: $('#export-to').value || today };
+}
+function renderExportRangeInputs(){
+  const {from,to} = computeExportRange();
+  $('#export-from').value = from;
+  $('#export-to').value = to;
+}
+$$('#export-range-chips .range-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    exportMode = chip.dataset.range;
+    $$('#export-range-chips .range-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    renderExportRangeInputs();
+  });
+});
+['#export-from','#export-to'].forEach(sel=>{
+  $(sel).addEventListener('change', ()=>{
+    exportMode = 'custom';
+    $$('#export-range-chips .range-chip').forEach(c=>c.classList.remove('active'));
+  });
+});
+
+function mdEscape(s){ return (s||'').toString().replace(/\|/g,'\\|').replace(/\n/g,' '); }
+
+function buildExportMarkdown(from, to){
+  const foods = foodEntries.filter(e=>e.date>=from && e.date<=to).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const flaresInRange = flareEntries.filter(f=>f.date>=from && f.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  let md = `# Trace export — ${from} to ${to}\n\n`;
+  md += `## Known allergies / sensitivities\n`;
+  md += allergies.length ? allergies.map(a=>`- ${mdEscape(a)}`).join('\n')+'\n\n' : '_None listed._\n\n';
+  md += `## Foods logged (${foods.length})\n`;
+  if(foods.length===0) md += '_None in this range._\n\n';
+  else{
+    md += '| Date | Time | Food | Ingredients | Flagged categories | Notes |\n|---|---|---|---|---|---|\n';
+    foods.forEach(e=>{
+      const food = savedFoods.find(f=>f.id===e.savedFoodId);
+      md += `| ${e.date} | ${e.time||''} | ${mdEscape(food?food.name:'(deleted)')} | ${mdEscape(food?food.ingredients.join(', '):'')} | ${mdEscape(food?food.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):'')} | ${mdEscape(e.notes)} |\n`;
+    });
+    md += '\n';
+  }
+  md += `## Flares logged (${flaresInRange.length})\n`;
+  if(flaresInRange.length===0) md += '_None in this range._\n';
+  else{
+    md += '| Date | Severity (1-5) | Areas | Notes |\n|---|---|---|---|\n';
+    flaresInRange.forEach(f=>{
+      md += `| ${f.date} | ${f.severity} | ${mdEscape(f.areas.join(', '))} | ${mdEscape(f.notes)} |\n`;
+    });
+  }
+  return md;
+}
+
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e2){ return false; }
+  }
+}
+
+$('#export-copy').addEventListener('click', async ()=>{
+  const {from,to} = computeExportRange();
+  const md = buildExportMarkdown(from,to);
+  const ok = await copyToClipboard(md);
+  showToast(ok ? 'Copied — paste it into your AI chat' : 'Could not copy automatically — try Download instead.', !ok);
+});
+$('#export-download').addEventListener('click', ()=>{
+  const {from,to} = computeExportRange();
+  const md = buildExportMarkdown(from,to);
+  const blob = new Blob([md], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `trace-export-${from}_to_${to}.txt`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Downloaded');
+});
 
 /* ---------------- init ---------------- */
 (async function init(){
@@ -1060,6 +1275,7 @@ function renderInsights(){
     renderCalendar();
     renderFoodList();
     renderFlareList();
+    renderExportRangeInputs();
   }catch(err){
     console.error('Init failed', err);
     showToast('App failed to start: ' + err.message, true);
