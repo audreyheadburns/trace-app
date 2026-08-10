@@ -57,6 +57,8 @@ nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var
 .timeline::-webkit-scrollbar{height:5px;}
 .timeline::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
 .day-chip{flex-shrink:0;width:40px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px 9px;border-radius:10px;border:1px solid transparent;cursor:pointer;background:var(--surface-2);}
+.day-chip.today{border-color:var(--accent);background:#F1EDF6;}
+.day-chip.today .num{color:var(--accent);font-weight:700;}
 .day-chip.selected{border-color:var(--ink);background:var(--surface);}
 .day-chip .wd{font-size:9px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;}
 .day-chip .num{font-size:12.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
@@ -77,6 +79,11 @@ nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var
 .mf-cat-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.06em;margin:14px 0 4px;}
 .mf-cat-label:first-child{margin-top:0;}
 
+.lip-zone-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:6px 0;border-top:1px solid var(--border);}
+.lip-zone-row:first-child{border-top:none;}
+.lip-zone-row .lz-name{font-weight:600;}
+.lip-zone-row .lz-pct{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);}
+
 .month-grid{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);margin-bottom:8px;}
 .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .month-nav button{border:1px solid var(--border);background:var(--surface-2);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;color:var(--ink-soft);}
@@ -87,7 +94,17 @@ nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var
 .grid7 .cell.selected{border-color:var(--ink);background:var(--surface-2);}
 .grid7 .cell.empty{cursor:default;}
 .grid7 .cell .num{font-size:11.5px;font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);}
-.grid7 .cell.today .num{font-weight:700;color:var(--ink);}
+.grid7 .cell.today .num{font-weight:700;color:var(--accent);}
+.grid7 .cell.today{border-color:var(--accent);}
+
+.meal-picker{display:flex;gap:6px;}
+.meal-btn{flex:1;padding:9px 0;text-align:center;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-soft);}
+.meal-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+.food-row{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--surface-2);}
+.food-row:only-child{margin-bottom:10px;}
+.fr-remove{display:none;color:#993556;}
+.add-row-btn{border:1px dashed var(--border);background:var(--surface-2);border-radius:9px;padding:9px 14px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;font-weight:600;width:100%;margin-bottom:14px;}
 
 /* ---- panels/forms ---- */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
@@ -236,33 +253,23 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   <!-- LOG TAB -->
   <section class="tabpanel active" id="tab-log">
     <div class="panel">
-      <h2>Log a food</h2>
+      <h2>Log food</h2>
       <form id="food-form">
-        <div class="field-row">
-          <div class="field">
-            <label>Food</label>
-            <input type="text" id="f-name" placeholder="Start typing…" autocomplete="off" required>
-            <div class="suggest-box" id="f-suggest" style="display:none;"></div>
-          </div>
-        </div>
-        <div id="f-selected-wrap"></div>
-        <div id="f-ingredients-wrap" style="display:none;">
-          <div class="field-row">
-            <div class="field">
-              <label>Ingredients (comma separated)</label>
-              <textarea id="f-ingredients" placeholder="e.g. yogurt, honey, granola, almonds"></textarea>
-              <p class="hint">Saved once — next time just search this food's name.</p>
-            </div>
-          </div>
-        </div>
+        <div id="food-rows"></div>
+        <button type="button" class="add-row-btn" id="add-row-btn">+ Add another food</button>
+
         <div class="field-row">
           <div class="field">
             <label>Date</label>
             <input type="date" id="f-date" required>
           </div>
-          <div class="field">
-            <label>Time</label>
-            <input type="time" id="f-time">
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Meal</label>
+          <div class="meal-picker" id="meal-picker">
+            <div class="meal-btn" data-meal="Lunch">Lunch</div>
+            <div class="meal-btn" data-meal="Dinner">Dinner</div>
+            <div class="meal-btn" data-meal="Snack">Snack</div>
           </div>
         </div>
         <div class="field-row">
@@ -313,6 +320,11 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
           </div>
           <p class="hint">1 = barely noticeable · 5 = worst flare</p>
         </div>
+        <div class="field" style="margin-top:12px;">
+          <label>Where on your lips</label>
+          <div id="flare-lips-diagram"></div>
+          <p class="hint" id="lips-selection-caption" style="text-align:center;">Tap a spot — you can pick more than one</p>
+        </div>
         <div class="field-row" style="margin-top:12px;">
           <div class="field">
             <label>Notes (optional)</label>
@@ -342,6 +354,12 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
         <button class="btn-primary" id="allergy-add" type="button">Add</button>
       </div>
       <p class="hint">Ingredients matching this list get flagged in your logs, separate from the auto-detected categories below.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Flare locations</h2>
+      <div id="insights-lips-diagram"></div>
+      <div id="lip-zone-stats" style="margin-top:12px;"></div>
     </div>
 
     <div class="panel">
@@ -517,7 +535,6 @@ let selectedSeverity = 3;
 let selectedDayFilter = null;
 let calView = 'strip'; // 'strip' | 'month'
 let calMonth = new Date();
-let pendingSelectedFoodId = null;
 let pendingFoodPhoto = null;
 let pendingFlarePhoto = null;
 let editingFoodId = null;
@@ -570,6 +587,24 @@ async function loadData(){
   try{ const r = await window.storage.get('trace:flareEntries', false); flareEntries = r?JSON.parse(r.value):[]; }catch(e){ flareEntries=[]; }
   try{ const r = await window.storage.get('trace:allergies', false); allergies = r?JSON.parse(r.value):[]; }catch(e){ allergies=[]; }
 }
+function migrateLegacyMeals(){
+  let changed = false;
+  foodEntries.forEach(e=>{
+    if(!e.meal){
+      changed = true;
+      const t = e.time || '';
+      let meal = 'Snack';
+      if(t){
+        const hh = parseInt(t.split(':')[0],10);
+        if(hh>=10 && hh<=15) meal='Lunch';
+        else if(hh>=16 && hh<=21) meal='Dinner';
+      }
+      e.meal = meal;
+      delete e.time;
+    }
+  });
+  return changed;
+}
 async function saveSavedFoods(){ try{ await window.storage.set('trace:savedFoods', JSON.stringify(savedFoods), false); }catch(e){ console.error('saveSavedFoods failed', e); } }
 async function saveFoodEntries(){ try{ await window.storage.set('trace:foodEntries', JSON.stringify(foodEntries), false); }catch(e){ console.error('saveFoodEntries failed', e); } }
 async function saveFlareEntries(){ try{ await window.storage.set('trace:flareEntries', JSON.stringify(flareEntries), false); }catch(e){ console.error('saveFlareEntries failed', e); } }
@@ -619,7 +654,7 @@ $$('.tabs button').forEach(btn=>{
     btn.classList.add('active');
     $$('.tabpanel').forEach(p=>p.classList.remove('active'));
     $('#tab-'+btn.dataset.tab).classList.add('active');
-    if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); }
+    if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); renderLipZoneStats(); }
   });
 });
 
@@ -657,14 +692,19 @@ function renderStrip(){
   el.innerHTML='';
   const days=[];
   for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  const todayS = todayStr();
   days.forEach(dateStr=>{
     const dt = new Date(dateStr+'T00:00:00');
     const sev = maxSevForDay(dateStr);
     const food = hasFoodForDay(dateStr);
     const chip = document.createElement('div');
-    chip.className = 'day-chip'+(selectedDayFilter===dateStr?' selected':'');
+    chip.className = 'day-chip'+(selectedDayFilter===dateStr?' selected':'')+(dateStr===todayS?' today':'');
     chip.innerHTML = `<span class="wd">${dt.toLocaleDateString('en-US',{weekday:'narrow'})}</span><span class="num">${dt.getDate()}</span><span class="day-marks"><span class="dot" ${sev?`style="background:var(--flare-${sev})"`:''}></span>${food?'<span class="food-mark">🍴</span>':''}</span>`;
-    chip.addEventListener('click', ()=>{ selectedDayFilter = selectedDayFilter===dateStr?null:dateStr; renderCalendar(); renderFoodList(); renderFlareList(); });
+    chip.addEventListener('click', ()=>{
+      selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
+      $('#f-date').value = dateStr;
+      renderCalendar(); renderFoodList(); renderFlareList();
+    });
     el.appendChild(chip);
   });
   el.scrollLeft = el.scrollWidth;
@@ -706,60 +746,156 @@ function renderMonth(){
     c.addEventListener('click', ()=>{
       const dateStr = c.dataset.date;
       selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
+      $('#f-date').value = dateStr;
       renderMonth(); renderFoodList(); renderFlareList();
     });
   });
 }
 
-/* ---------------- food autocomplete ---------------- */
-$('#f-date').value = todayStr();
-
-function resetFoodFormSelection(){
-  pendingSelectedFoodId = null;
-  $('#f-selected-wrap').innerHTML='';
-  $('#f-ingredients-wrap').style.display='none';
-  $('#f-ingredients').value='';
+/* ---------------- category auto-guess ---------------- */
+const CATEGORY_DICT = {
+  Drinks:    ['tea','coffee','latte','juice','soda','smoothie','shake','water','wine','beer','cocktail','lemonade','matcha','cider','kombucha'],
+  Dessert:   ['cake','cookie','ice cream','brownie','pie','pudding','chocolate','candy','donut','doughnut','pastry','mochi','tart','sundae'],
+  Breakfast: ['cereal','oatmeal','pancake','waffle','omelet','omelette','toast','bagel','granola','breakfast burrito'],
+  Asian:     ['sushi','ramen','pho','curry','dumpling','noodle','teriyaki','kimchi','bibimbap','udon','tempura','pad thai','dim sum','bao','miso'],
+  Snacks:    ['chips','popcorn','crackers','granola bar','trail mix','pretzel','jerky'],
+  Dinner:    ['steak','pasta','pizza','burger','chicken','stir fry','casserole','roast','meatloaf'],
+  Lunch:     ['sandwich','salad','wrap','soup','burrito','taco'],
+};
+function guessCategory(name, ingredientsRaw){
+  const text = (name+' '+(ingredientsRaw||'')).toLowerCase();
+  for(const [cat,keywords] of Object.entries(CATEGORY_DICT)){
+    if(keywords.some(kw=>text.includes(kw))) return cat;
+  }
+  return 'Uncategorized';
 }
 
-$('#f-name').addEventListener('input', (e)=>{
+/* ---------------- multi-row food form ---------------- */
+$('#f-date').value = todayStr();
+let rowCounter = 0;
+const rowState = new Map(); // rowId -> { selectedFoodId }
+let selectedMeal = null;
+
+function defaultMealForNow(){
+  const h = new Date().getHours();
+  if(h>=10 && h<=15) return 'Lunch';
+  if(h>=16 && h<=21) return 'Dinner';
+  return 'Snack';
+}
+function setMeal(meal){
+  selectedMeal = meal;
+  $$('.meal-btn').forEach(b=> b.classList.toggle('active', b.dataset.meal===meal));
+}
+$('#meal-picker').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.meal-btn'); if(!btn) return;
+  setMeal(btn.dataset.meal);
+});
+
+function foodRowHtml(rowId){
+  return `
+    <div class="food-row" data-row="${rowId}">
+      <div class="field-row">
+        <div class="field" style="position:relative;">
+          <label>Food</label>
+          <input type="text" class="fr-name" placeholder="Start typing…" autocomplete="off">
+          <div class="suggest-box fr-suggest" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="fr-selected-wrap"></div>
+      <div class="fr-ingredients-wrap" style="display:none;">
+        <div class="field-row">
+          <div class="field">
+            <label>Ingredients (comma separated)</label>
+            <textarea class="fr-ingredients" placeholder="e.g. yogurt, honey, granola, almonds"></textarea>
+            <p class="hint">Saved once — next time just search this food's name. Category is guessed automatically; edit it anytime in My Foods.</p>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="mini-link fr-remove">Remove item</button>
+    </div>`;
+}
+function addFoodRow(){
+  rowCounter++;
+  const rowId = 'r'+rowCounter;
+  rowState.set(rowId, { selectedFoodId: null });
+  $('#food-rows').insertAdjacentHTML('beforeend', foodRowHtml(rowId));
+  updateRemoveButtons();
+}
+function updateRemoveButtons(){
+  const rows = $$('.food-row');
+  rows.forEach(r=> r.querySelector('.fr-remove').style.display = rows.length>1 ? 'inline-block' : 'none');
+}
+function resetFoodForm(){
+  rowState.clear();
+  $('#food-rows').innerHTML='';
+  addFoodRow();
+  $('#f-notes').value='';
+  setMeal(defaultMealForNow());
+  const preview = $('#f-photo-row .photo-preview'); if(preview) preview.remove();
+  pendingFoodPhoto = null;
+}
+
+$('#add-row-btn').addEventListener('click', addFoodRow);
+
+$('#food-rows').addEventListener('input', (e)=>{
+  if(!e.target.classList.contains('fr-name')) return;
+  const rowEl = e.target.closest('.food-row');
+  const rowId = rowEl.dataset.row;
+  rowState.get(rowId).selectedFoodId = null;
+  rowEl.querySelector('.fr-selected-wrap').innerHTML = '';
+  rowEl.querySelector('.fr-ingredients-wrap').style.display = 'none';
   const q = e.target.value.trim().toLowerCase();
-  resetFoodFormSelection();
-  const box = $('#f-suggest');
+  const box = rowEl.querySelector('.fr-suggest');
   if(!q){ box.style.display='none'; return; }
   const matches = savedFoods.filter(f=>f.name.toLowerCase().includes(q)).slice(0,6);
   let html = matches.map(f=>`
     <div class="suggest-item" data-id="${f.id}">
       <span>${escapeHtml(f.name)}</span>
-      <span class="si-tags">${f.flagged.map(k=>TRIGGER_DICT[k].label).join(', ')}</span>
+      <span class="si-tags">${f.category||''}</span>
     </div>`).join('');
   const exact = savedFoods.some(f=>f.name.toLowerCase()===q);
-  if(!exact) html += `<div class="suggest-new" id="suggest-new-btn">+ Add "${escapeHtml(e.target.value.trim())}" as a new food</div>`;
+  if(!exact) html += `<div class="suggest-new" data-newfood="${escapeHtml(e.target.value.trim())}">+ Add "${escapeHtml(e.target.value.trim())}" as a new food</div>`;
   box.innerHTML = html;
   box.style.display = 'block';
-  $$('.suggest-item', box).forEach(item=>{
-    item.addEventListener('click', ()=>{
-      const food = savedFoods.find(f=>f.id===item.dataset.id);
-      selectSavedFood(food);
-      box.style.display='none';
-    });
-  });
-  const newBtn = $('#suggest-new-btn');
-  if(newBtn) newBtn.addEventListener('click', ()=>{
-    $('#f-ingredients-wrap').style.display='block';
-    box.style.display='none';
-  });
 });
-$('#f-name').addEventListener('focus', (e)=>{ if(e.target.value.trim()) e.target.dispatchEvent(new Event('input')); });
-document.addEventListener('click', (e)=>{ if(!e.target.closest('#f-name') && !e.target.closest('#f-suggest')) $('#f-suggest').style.display='none'; });
+$('#food-rows').addEventListener('focusin', (e)=>{
+  if(e.target.classList.contains('fr-name') && e.target.value.trim()) e.target.dispatchEvent(new Event('input'));
+});
+document.addEventListener('click', (e)=>{
+  if(e.target.closest('.fr-name') || e.target.closest('.fr-suggest')) return;
+  $$('.fr-suggest').forEach(b=> b.style.display='none');
+});
+$('#food-rows').addEventListener('click', (e)=>{
+  const suggestItem = e.target.closest('.suggest-item');
+  const newBtn = e.target.closest('[data-newfood]');
+  const removeBtn = e.target.closest('.fr-remove');
+  const editLink = e.target.closest('[data-edit-selected]');
+  const rowEl = e.target.closest('.food-row');
 
-function selectSavedFood(food){
-  pendingSelectedFoodId = food.id;
-  $('#f-name').value = food.name;
-  $('#f-ingredients-wrap').style.display='none';
-  $('#f-selected-wrap').innerHTML = `
+  if(suggestItem){
+    const food = savedFoods.find(f=>f.id===suggestItem.dataset.id);
+    selectSavedFoodInRow(rowEl, food);
+    rowEl.querySelector('.fr-suggest').style.display='none';
+  }else if(newBtn){
+    rowEl.querySelector('.fr-ingredients-wrap').style.display='block';
+    rowEl.querySelector('.fr-suggest').style.display='none';
+  }else if(removeBtn){
+    rowState.delete(rowEl.dataset.row);
+    rowEl.remove();
+    updateRemoveButtons();
+  }else if(editLink){
+    openEditModal(editLink.dataset.editSelected);
+  }
+});
+
+function selectSavedFoodInRow(rowEl, food){
+  rowState.get(rowEl.dataset.row).selectedFoodId = food.id;
+  rowEl.querySelector('.fr-name').value = food.name;
+  rowEl.querySelector('.fr-ingredients-wrap').style.display='none';
+  rowEl.querySelector('.fr-selected-wrap').innerHTML = `
     <div class="selected-food-bar">
-      <span>${food.ingredients.length? food.ingredients.length+' ingredients saved' : 'No ingredients saved yet'}</span>
-      <button type="button" class="mini-link" id="edit-selected-food">Edit</button>
+      <span>${food.category||'Uncategorized'} · ${food.ingredients.length? food.ingredients.length+' ingredients saved' : 'no ingredients saved yet'}</span>
+      <button type="button" class="mini-link" data-edit-selected="${food.id}">Edit</button>
     </div>
     <div class="chip-display">${food.ingredients.map(ing=>{
       const isAllergy = matchAllergies(ing).length>0;
@@ -767,7 +903,6 @@ function selectSavedFood(food){
       return `<span class="ing-chip${isAllergy?' allergy':(flagged?' flagged':'')}">${escapeHtml(ing)}</span>`;
     }).join('')}</div>
   `;
-  $('#edit-selected-food').addEventListener('click', ()=> openEditModal(food.id));
 }
 
 /* ---------------- edit saved food modal ---------------- */
@@ -795,7 +930,6 @@ $('#em-save').addEventListener('click', async ()=>{
   $('#edit-modal').classList.remove('open');
   renderManagerList();
   renderFoodList();
-  if(pendingSelectedFoodId===food.id) selectSavedFood(food);
 });
 
 /* ---------------- food form submit ---------------- */
@@ -820,46 +954,54 @@ function renderPendingPhotoPreview(rowId, btnId, dataUrl, onRemove){
 $('#food-form').addEventListener('submit', async (e)=>{
   e.preventDefault();
   e.stopPropagation();
-  $('#f-suggest').style.display = 'none';
+  $$('.fr-suggest').forEach(b=> b.style.display='none');
   try{
-    const typedName = $('#f-name').value.trim();
-    if(!typedName){ $('#f-name').focus(); return; }
-    let foodId = pendingSelectedFoodId;
+    if(!selectedMeal) setMeal(defaultMealForNow());
+    const date = $('#f-date').value || todayStr();
+    const meal = selectedMeal;
+    const notes = $('#f-notes').value.trim();
+    const rows = $$('.food-row');
+    const foodIdsToLog = [];
 
-    if(!foodId){
-      const existing = savedFoods.find(f=>f.name.toLowerCase()===typedName.toLowerCase());
-      if(existing){
-        foodId = existing.id;
-      }else{
-        const ingredientsRaw = $('#f-ingredients').value.trim();
-        const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
-        const newFood = { id: uid(), name: typedName, ingredients, flagged: matchIngredients(ingredientsRaw || typedName), category: 'Uncategorized' };
-        savedFoods.push(newFood);
-        await saveSavedFoods();
-        foodId = newFood.id;
+    for(const rowEl of rows){
+      const rowId = rowEl.dataset.row;
+      const typedName = rowEl.querySelector('.fr-name').value.trim();
+      if(!typedName) continue;
+      let foodId = rowState.get(rowId).selectedFoodId;
+      if(!foodId){
+        const existing = savedFoods.find(f=>f.name.toLowerCase()===typedName.toLowerCase());
+        if(existing){
+          foodId = existing.id;
+        }else{
+          const ingredientsRaw = rowEl.querySelector('.fr-ingredients').value.trim();
+          const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+          const newFood = {
+            id: uid(), name: typedName, ingredients,
+            flagged: matchIngredients(ingredientsRaw || typedName),
+            category: guessCategory(typedName, ingredientsRaw)
+          };
+          savedFoods.push(newFood);
+          foodId = newFood.id;
+        }
       }
+      foodIdsToLog.push(foodId);
     }
 
-    const entryId = uid();
-    const entry = {
-      id: entryId, savedFoodId: foodId,
-      date: $('#f-date').value || todayStr(),
-      time: $('#f-time').value || '',
-      notes: $('#f-notes').value.trim(),
-      hasPhoto: !!pendingFoodPhoto
-    };
-    foodEntries.push(entry);
+    if(foodIdsToLog.length===0){ showToast('Add at least one food name', true); return; }
+    await saveSavedFoods();
+
+    const entryIds = [];
+    for(const foodId of foodIdsToLog){
+      const entryId = uid();
+      foodEntries.push({ id: entryId, savedFoodId: foodId, date, meal, notes, hasPhoto: !!pendingFoodPhoto });
+      entryIds.push(entryId);
+    }
     await saveFoodEntries();
-    if(pendingFoodPhoto) await savePhoto(entryId, pendingFoodPhoto);
+    if(pendingFoodPhoto){ for(const id of entryIds) await savePhoto(id, pendingFoodPhoto); }
 
-    $('#food-form').reset();
-    $('#f-date').value = todayStr();
-    resetFoodFormSelection();
-    const preview = $('#f-photo-row .photo-preview'); if(preview) preview.remove();
-    pendingFoodPhoto = null;
-
+    resetFoodForm();
     renderCalendar(); renderFoodList(); renderManagerList();
-    showToast('Logged "'+typedName+'"');
+    showToast(`Logged ${entryIds.length} item${entryIds.length>1?'s':''}`);
   }catch(err){
     console.error('Food submit failed', err);
     showToast('Could not log that food: ' + err.message, true);
@@ -918,7 +1060,7 @@ function renderManagerList(){
 async function renderFoodList(){
   const el = $('#food-list');
   el.innerHTML='';
-  let list = [...foodEntries].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  let list = [...foodEntries].sort((a,b)=>(b.date+(b.meal||'')).localeCompare(a.date+(a.meal||'')));
   if(selectedDayFilter) list = list.filter(f=>f.date===selectedDayFilter);
   if(list.length===0){
     el.innerHTML = `<div class="empty-state"><span class="em-mark">🍽</span>${selectedDayFilter?'No foods logged that day.':'Nothing logged yet — add your first food above.'}</div>`;
@@ -943,7 +1085,7 @@ async function renderFoodList(){
       <div class="entry-main">
         <div class="entry-top">
           <span class="entry-name" data-editfood="${food?food.id:''}">${escapeHtml(food?food.name:'(deleted food)')}</span>
-          ${entry.time?`<span class="entry-time">${entry.time}</span>`:''}
+          ${entry.meal?`<span class="entry-time">${entry.meal}</span>`:''}
         </div>
         ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
         <div class="tag-row">${food?food.ingredients.map(ing=>{
@@ -968,6 +1110,54 @@ async function renderFoodList(){
   }
 }
 
+/* ---------------- lips diagram ---------------- */
+const LIP_ZONES = ['tl','tm','tr','bl','bm','br'];
+const LIP_ZONE_LABELS = { tl:'Top left', tm:'Top middle', tr:'Top right', bl:'Bottom left', bm:'Bottom middle', br:'Bottom right' };
+const LIPS_PATH = "M20,70 C40,40 80,35 93,44 C102,50 112,50 120,44 C128,50 138,50 147,44 C160,35 200,40 220,70 C200,97 160,112 120,112 C80,112 40,97 20,70 Z";
+const LIP_ZONE_RECTS = {
+  tl:{x:15,y:35,w:78,h:37}, tm:{x:93,y:35,w:54,h:37}, tr:{x:147,y:35,w:78,h:37},
+  bl:{x:15,y:72,w:78,h:40}, bm:{x:93,y:72,w:54,h:40}, br:{x:147,y:72,w:78,h:40}
+};
+function buildLipsSvg(clipId, mode, selectedSet, counts, maxCount){
+  let rects = '';
+  for(const z of LIP_ZONES){
+    const r = LIP_ZONE_RECTS[z];
+    let fill, opacity;
+    if(mode==='edit'){
+      fill = selectedSet.has(z) ? '#B23C48' : '#ffffff';
+      opacity = 1;
+    }else{
+      const c = (counts && counts[z]) || 0;
+      const ratio = maxCount>0 ? c/maxCount : 0;
+      fill = ratio>0 ? '#B23C48' : '#F8F6FA';
+      opacity = ratio>0 ? (0.2 + ratio*0.8) : 1;
+    }
+    rects += `<rect data-zone="${z}" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${fill}" fill-opacity="${opacity}" clip-path="url(#${clipId})" style="cursor:${mode==='edit'?'pointer':'default'};transition:fill-opacity .12s ease, fill .12s ease;"></rect>`;
+  }
+  return `
+  <svg viewBox="0 0 240 140" style="width:100%;max-width:240px;display:block;margin:0 auto;">
+    <defs><clipPath id="${clipId}"><path d="${LIPS_PATH}"/></clipPath></defs>
+    ${rects}
+    <line x1="93" y1="35" x2="93" y2="112" stroke="#F1EFF4" stroke-width="2" clip-path="url(#${clipId})"></line>
+    <line x1="147" y1="35" x2="147" y2="112" stroke="#F1EFF4" stroke-width="2" clip-path="url(#${clipId})"></line>
+    <line x1="20" y1="70" x2="220" y2="70" stroke="#F1EFF4" stroke-width="2" clip-path="url(#${clipId})"></line>
+    <path d="${LIPS_PATH}" fill="none" stroke="#2B2730" stroke-width="2"></path>
+  </svg>`;
+}
+
+let selectedLipZones = new Set();
+function renderFlareLipsDiagram(){
+  $('#flare-lips-diagram').innerHTML = buildLipsSvg('editClip', 'edit', selectedLipZones);
+  const labels = Array.from(selectedLipZones).map(z=>LIP_ZONE_LABELS[z]);
+  $('#lips-selection-caption').textContent = labels.length ? labels.join(', ') : 'Tap a spot — you can pick more than one';
+}
+$('#flare-lips-diagram').addEventListener('click', (e)=>{
+  const rect = e.target.closest('rect[data-zone]'); if(!rect) return;
+  const z = rect.dataset.zone;
+  if(selectedLipZones.has(z)) selectedLipZones.delete(z); else selectedLipZones.add(z);
+  renderFlareLipsDiagram();
+});
+
 /* ---------------- flare form ---------------- */
 $('#fl-date').value = todayStr();
 $('#sev-picker').addEventListener('click',(e)=>{
@@ -990,12 +1180,14 @@ $('#flare-form').addEventListener('submit', async (e)=>{
     const entryId = uid();
     flareEntries.push({
       id: entryId, date: $('#fl-date').value || todayStr(), severity: selectedSeverity,
-      areas: [], notes: $('#fl-notes').value.trim(), hasPhoto: !!pendingFlarePhoto
+      lipZones: Array.from(selectedLipZones), notes: $('#fl-notes').value.trim(), hasPhoto: !!pendingFlarePhoto
     });
     await saveFlareEntries();
     if(pendingFlarePhoto) await savePhoto(entryId, pendingFlarePhoto);
     $('#flare-form').reset();
     $('#fl-date').value = todayStr();
+    selectedLipZones = new Set();
+    renderFlareLipsDiagram();
     const preview = $('#fl-photo-row .photo-preview'); if(preview) preview.remove();
     pendingFlarePhoto = null;
     renderCalendar(); renderFlareList();
@@ -1005,6 +1197,7 @@ $('#flare-form').addEventListener('submit', async (e)=>{
     showToast('Could not log that flare: ' + err.message, true);
   }
 });
+
 
 async function renderFlareList(){
   const el = $('#flare-list');
@@ -1025,6 +1218,7 @@ async function renderFlareList(){
       ${thumbHtml}
       <div class="entry-main">
         <div class="entry-top"><span class="entry-name" style="cursor:default;">${fmtDateFull(entry.date)}</span></div>
+        ${entry.lipZones && entry.lipZones.length?`<div class="tag-row">${entry.lipZones.map(z=>`<span class="tag">${LIP_ZONE_LABELS[z]||z}</span>`).join('')}</div>`:''}
         ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
       </div>
       <button class="del-btn" data-id="${entry.id}" title="Delete">✕</button>
@@ -1081,6 +1275,35 @@ async function addAllergy(){
 /* ---------------- insights ---------------- */
 $('#lookback-select').addEventListener('change', renderInsights);
 function dateMinus(dateStr,n){ const d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+
+function renderLipZoneStats(){
+  const withZones = flareEntries.filter(f=>f.lipZones && f.lipZones.length);
+  const counts = {};
+  LIP_ZONES.forEach(z=> counts[z]=0);
+  withZones.forEach(f=> f.lipZones.forEach(z=>{ if(counts[z]!==undefined) counts[z]++; }));
+  const maxCount = Math.max(0, ...Object.values(counts));
+
+  $('#insights-lips-diagram').innerHTML = buildLipsSvg('heatClip', 'heat', new Set(), counts, maxCount);
+
+  const statsEl = $('#lip-zone-stats');
+  if(flareEntries.length===0){
+    statsEl.innerHTML = `<div class="empty-state" style="padding:16px 0;">Log a flare with a location to see patterns here.</div>`;
+    return;
+  }
+  if(withZones.length===0){
+    statsEl.innerHTML = `<div class="empty-state" style="padding:16px 0;">No location data yet on your logged flares.</div>`;
+    return;
+  }
+  const rows = LIP_ZONES
+    .map(z=>({ z, count: counts[z], pct: Math.round((counts[z]/withZones.length)*100) }))
+    .sort((a,b)=> b.count-a.count);
+  statsEl.innerHTML = rows.map(r=>`
+    <div class="lip-zone-row">
+      <span class="lz-name">${LIP_ZONE_LABELS[r.z]}</span>
+      <span class="lz-pct">${r.count} of ${withZones.length} (${r.pct}%)</span>
+    </div>
+  `).join('');
+}
 
 function renderInsights(){
   const totalDaysLogged = new Set(foodEntries.map(f=>f.date)).size;
@@ -1186,7 +1409,7 @@ $$('#export-range-chips .range-chip').forEach(chip=>{
 function mdEscape(s){ return (s||'').toString().replace(/\|/g,'\\|').replace(/\n/g,' '); }
 
 function buildExportMarkdown(from, to){
-  const foods = foodEntries.filter(e=>e.date>=from && e.date<=to).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const foods = foodEntries.filter(e=>e.date>=from && e.date<=to).sort((a,b)=>(a.date+(a.meal||'')).localeCompare(b.date+(b.meal||'')));
   const flaresInRange = flareEntries.filter(f=>f.date>=from && f.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
   let md = `# Trace export — ${from} to ${to}\n\n`;
   md += `## Known allergies / sensitivities\n`;
@@ -1194,19 +1417,20 @@ function buildExportMarkdown(from, to){
   md += `## Foods logged (${foods.length})\n`;
   if(foods.length===0) md += '_None in this range._\n\n';
   else{
-    md += '| Date | Time | Food | Ingredients | Flagged categories | Notes |\n|---|---|---|---|---|---|\n';
+    md += '| Date | Meal | Food | Ingredients | Flagged categories | Notes |\n|---|---|---|---|---|---|\n';
     foods.forEach(e=>{
       const food = savedFoods.find(f=>f.id===e.savedFoodId);
-      md += `| ${e.date} | ${e.time||''} | ${mdEscape(food?food.name:'(deleted)')} | ${mdEscape(food?food.ingredients.join(', '):'')} | ${mdEscape(food?food.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):'')} | ${mdEscape(e.notes)} |\n`;
+      md += `| ${e.date} | ${e.meal||''} | ${mdEscape(food?food.name:'(deleted)')} | ${mdEscape(food?food.ingredients.join(', '):'')} | ${mdEscape(food?food.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):'')} | ${mdEscape(e.notes)} |\n`;
     });
     md += '\n';
   }
   md += `## Flares logged (${flaresInRange.length})\n`;
   if(flaresInRange.length===0) md += '_None in this range._\n';
   else{
-    md += '| Date | Severity (1-5) | Notes |\n|---|---|---|\n';
+    md += '| Date | Severity (1-5) | Location | Notes |\n|---|---|---|---|\n';
     flaresInRange.forEach(f=>{
-      md += `| ${f.date} | ${f.severity} | ${mdEscape(f.notes)} |\n`;
+      const loc = (f.lipZones||[]).map(z=>LIP_ZONE_LABELS[z]||z).join(', ');
+      md += `| ${f.date} | ${f.severity} | ${mdEscape(loc)} | ${mdEscape(f.notes)} |\n`;
     });
   }
   return md;
@@ -1251,6 +1475,10 @@ $('#export-download').addEventListener('click', ()=>{
   try{
     if(!window.storage) showToast('Storage not available — entries will only last this session.', true);
     await loadData();
+    if(migrateLegacyMeals()) await saveFoodEntries();
+    addFoodRow();
+    setMeal(defaultMealForNow());
+    renderFlareLipsDiagram();
     renderCalendar();
     renderFoodList();
     renderFlareList();
