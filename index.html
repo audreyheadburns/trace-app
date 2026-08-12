@@ -279,8 +279,8 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
           </div>
         </div>
         <div class="photo-row" id="f-photo-row">
-          <button type="button" class="photo-btn" id="f-photo-btn">📷 Add photo</button>
-          <input type="file" accept="image/*" capture="environment" id="f-photo-input" style="display:none;">
+          <button type="button" class="photo-btn" id="scan-recipe-btn">📷 Scan a recipe</button>
+          <input type="file" accept="image/*" capture="environment" id="scan-recipe-input" style="display:none;">
         </div>
         <div style="height:14px;"></div>
         <button type="submit" class="btn-primary">Log it</button>
@@ -424,7 +424,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 <div class="modal-overlay edit-modal" id="edit-modal">
   <div class="modal-box">
     <div class="panel" style="box-shadow:none;border:none;">
-      <h2>Edit food</h2>
+      <h2 id="em-title">Edit food</h2>
       <div class="field">
         <label>Name</label>
         <input type="text" id="em-name">
@@ -432,7 +432,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       <div class="field" style="margin-top:10px;">
         <label>Ingredients (comma separated)</label>
         <textarea id="em-ingredients"></textarea>
-        <p class="hint">Updates every past entry logged with this food.</p>
+        <p class="hint" id="em-ingredients-hint">Updates every past entry logged with this food.</p>
       </div>
       <div class="field" style="margin-top:10px;">
         <label>Category</label>
@@ -535,7 +535,6 @@ let selectedSeverity = 3;
 let selectedDayFilter = null;
 let calView = 'strip'; // 'strip' | 'month'
 let calMonth = new Date();
-let pendingFoodPhoto = null;
 let pendingFlarePhoto = null;
 let editingFoodId = null;
 
@@ -638,6 +637,29 @@ function compressImage(file){
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img,0,0,canvas.width,canvas.height);
         resolve(canvas.toDataURL('image/jpeg',0.72));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeForOCR(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const maxW = 1500;
+        const scale = Math.min(1, maxW/img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width*scale;
+        canvas.height = img.height*scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL('image/jpeg',0.9));
       };
       img.onerror = reject;
       img.src = reader.result;
@@ -752,6 +774,66 @@ function renderMonth(){
   });
 }
 
+/* ---------------- recipe scan (on-device OCR) ---------------- */
+let tesseractLoadPromise = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(tesseractLoadPromise) return tesseractLoadPromise;
+  tesseractLoadPromise = new Promise((resolve,reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
+    s.onload = ()=> resolve();
+    s.onerror = ()=>{ tesseractLoadPromise = null; reject(new Error('Could not load the OCR engine — check your connection.')); };
+    document.head.appendChild(s);
+  });
+  return tesseractLoadPromise;
+}
+
+function parseRecipeText(raw){
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length===0) return { name:'', ingredients:[] };
+  const ingredHeadingIdx = lines.findIndex(l=>/^ingredients?\s*:?$/i.test(l));
+  const stopHeadingRe = /^(instructions|directions|method|steps|preparation)\s*:?$/i;
+  let name = '', ingredientLines = [];
+  if(ingredHeadingIdx !== -1){
+    name = lines.slice(0, ingredHeadingIdx).find(l=>l.length>2) || '';
+    for(let i=ingredHeadingIdx+1;i<lines.length;i++){
+      if(stopHeadingRe.test(lines[i])) break;
+      ingredientLines.push(lines[i]);
+    }
+  }else{
+    name = lines[0];
+    ingredientLines = lines.slice(1).filter(l=>!stopHeadingRe.test(l));
+  }
+  const ingredients = ingredientLines
+    .map(l=> l.replace(/^[-•*\u2022]\s*/,'').replace(/^\d+[\.\)]\s*/,'').trim())
+    .filter(l=> l.length>1 && l.length<60)
+    .slice(0,25);
+  return { name: name.slice(0,80), ingredients };
+}
+
+$('#scan-recipe-btn').addEventListener('click', ()=> $('#scan-recipe-input').click());
+$('#scan-recipe-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  showToast('Reading recipe photo… this can take a few seconds');
+  try{
+    const dataUrl = await resizeForOCR(file);
+    await loadTesseract();
+    const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng');
+    const { name, ingredients } = parseRecipeText(text);
+    if(!name && ingredients.length===0){
+      showToast('Could not find readable text in that photo — try a clearer, well-lit shot.', true);
+      return;
+    }
+    openScanReviewModal(name, ingredients);
+  }catch(err){
+    console.error('OCR failed', err);
+    showToast('Could not read that photo: ' + err.message, true);
+  }
+});
+
 /* ---------------- category auto-guess ---------------- */
 const CATEGORY_DICT = {
   Drinks:    ['tea','coffee','latte','juice','soda','smoothie','shake','water','wine','beer','cocktail','lemonade','matcha','cider','kombucha'],
@@ -765,7 +847,10 @@ const CATEGORY_DICT = {
 function guessCategory(name, ingredientsRaw){
   const text = (name+' '+(ingredientsRaw||'')).toLowerCase();
   for(const [cat,keywords] of Object.entries(CATEGORY_DICT)){
-    if(keywords.some(kw=>text.includes(kw))) return cat;
+    if(keywords.some(kw=>{
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      return new RegExp('\\b'+escaped+'(s|es)?\\b').test(text);
+    })) return cat;
   }
   return 'Uncategorized';
 }
@@ -831,8 +916,6 @@ function resetFoodForm(){
   addFoodRow();
   $('#f-notes').value='';
   setMeal(defaultMealForNow());
-  const preview = $('#f-photo-row .photo-preview'); if(preview) preview.remove();
-  pendingFoodPhoto = null;
 }
 
 $('#add-row-btn').addEventListener('click', addFoodRow);
@@ -910,22 +993,42 @@ function openEditModal(foodId){
   const food = savedFoods.find(f=>f.id===foodId);
   if(!food) return;
   editingFoodId = foodId;
+  $('#em-title').textContent = 'Edit food';
+  $('#em-ingredients-hint').textContent = 'Updates every past entry logged with this food.';
+  $('#em-save').textContent = 'Save changes';
   $('#em-name').value = food.name;
   $('#em-ingredients').value = food.ingredients.join(', ');
   $('#em-category').value = food.category || '';
   $('#edit-modal').classList.add('open');
 }
+function openScanReviewModal(guessedName, guessedIngredients){
+  editingFoodId = null;
+  $('#em-title').textContent = 'Review scanned recipe';
+  $('#em-ingredients-hint').textContent = 'Scanned text can be imperfect — check it over before saving.';
+  $('#em-save').textContent = 'Save to My Foods';
+  $('#em-name').value = guessedName;
+  $('#em-ingredients').value = guessedIngredients.join(', ');
+  $('#em-category').value = guessCategory(guessedName, guessedIngredients.join(', '));
+  $('#edit-modal').classList.add('open');
+}
 $('#em-cancel').addEventListener('click', ()=> $('#edit-modal').classList.remove('open'));
 $('#em-save').addEventListener('click', async ()=>{
-  const food = savedFoods.find(f=>f.id===editingFoodId);
-  if(!food) return;
   const name = $('#em-name').value.trim();
   const ingredientsRaw = $('#em-ingredients').value.trim();
   const ingredients = ingredientsRaw? ingredientsRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  food.name = name || food.name;
-  food.ingredients = ingredients;
-  food.flagged = matchIngredients(ingredientsRaw);
-  food.category = $('#em-category').value.trim() || 'Uncategorized';
+  const category = $('#em-category').value.trim() || 'Uncategorized';
+
+  if(editingFoodId){
+    const food = savedFoods.find(f=>f.id===editingFoodId);
+    if(!food) return;
+    food.name = name || food.name;
+    food.ingredients = ingredients;
+    food.flagged = matchIngredients(ingredientsRaw);
+    food.category = category;
+  }else{
+    if(!name){ showToast('Enter a food name', true); return; }
+    savedFoods.push({ id: uid(), name, ingredients, flagged: matchIngredients(ingredientsRaw||name), category });
+  }
   await saveSavedFoods();
   $('#edit-modal').classList.remove('open');
   renderManagerList();
@@ -933,13 +1036,6 @@ $('#em-save').addEventListener('click', async ()=>{
 });
 
 /* ---------------- food form submit ---------------- */
-$('#f-photo-btn').addEventListener('click', ()=> $('#f-photo-input').click());
-$('#f-photo-input').addEventListener('change', async (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  pendingFoodPhoto = await compressImage(file);
-  renderPendingPhotoPreview('f-photo-row','f-photo-btn', pendingFoodPhoto, ()=>{ pendingFoodPhoto=null; });
-});
 function renderPendingPhotoPreview(rowId, btnId, dataUrl, onRemove){
   const row = $('#'+rowId);
   const existing = row.querySelector('.photo-preview');
@@ -993,11 +1089,10 @@ $('#food-form').addEventListener('submit', async (e)=>{
     const entryIds = [];
     for(const foodId of foodIdsToLog){
       const entryId = uid();
-      foodEntries.push({ id: entryId, savedFoodId: foodId, date, meal, notes, hasPhoto: !!pendingFoodPhoto });
+      foodEntries.push({ id: entryId, savedFoodId: foodId, date, meal, notes, hasPhoto: false });
       entryIds.push(entryId);
     }
     await saveFoodEntries();
-    if(pendingFoodPhoto){ for(const id of entryIds) await savePhoto(id, pendingFoodPhoto); }
 
     resetFoodForm();
     renderCalendar(); renderFoodList(); renderManagerList();
