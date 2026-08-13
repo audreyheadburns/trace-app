@@ -1686,7 +1686,11 @@ Please analyze this log and respond in this exact JSON format, with no text outs
   "caveat": "a short honest note if the data is too sparse or inconclusive to draw real conclusions — say so plainly if that's the case"
 }
 
-Base every suspect strictly on patterns actually present in the log above. Do not invent foods or dates not shown. This is observational pattern-spotting, not a medical diagnosis — do not phrase anything as a confirmed cause. Keep the insight and reasoning concise and specific to this data, not generic advice.`;
+Tone: write like a warm, plain-spoken friend talking directly to the user, not a lab report. Use "you" and "your," contractions, and everyday words — no clinical or academic phrasing (avoid words like "correlation," "onset," "align with," "consumption," "data set"). Keep sentences short and conversational. Still be specific and reference actual dates/foods from the log, just say it the way a thoughtful friend would explain it over text, not the way a report would present it.
+
+Base every suspect strictly on patterns actually present in the log above. Do not invent foods or dates not shown. This is observational pattern-spotting, not a medical diagnosis — do not phrase anything as a confirmed cause. Keep the insight and reasoning concise and specific to this data, not generic advice.
+
+Before finalizing your answer, check every claim you're about to make connecting a food to one of the user's listed allergens/sensitivities (e.g. "X is high in nickel," "Y contains gluten"). Only include that claim if you are genuinely confident it reflects well-established, accurate knowledge — if you're not sure, or the food is actually known to be LOW in that allergen, do not make the claim, and either drop that reasoning or reframe it around timing alone (e.g. "this showed up the day before your flare" without asserting why). Getting an allergen-content fact wrong is worse than leaving it out — when in doubt, leave it out.`;
 }
 
 async function callGemini(prompt){
