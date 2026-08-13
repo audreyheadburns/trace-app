@@ -26,7 +26,10 @@
   --ink: #2B2730;
   --ink-soft: #6B6470;
   --ink-faint: #9C97A6;
-  --flare-1: #F3D9CF; --flare-2: #E8AFA8; --flare-3: #DC8888; --flare-4: #CE6468; --flare-5: #B23C48;
+  --flare-1: #8FBE8F; --flare-2: #C7C468; --flare-3: #E0A83E; --flare-4: #D9793E; --flare-5: #B23C48;
+  --logo-blush: #E8AFA8;
+  --flare-accent: #DC8888;
+  --danger: #B23C48;
   --calm: #7C9A82;
   --flag: #C98A3E;
   --accent: #8B7DA8;
@@ -40,7 +43,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webki
 
 header{padding:26px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
 .brand{display:flex;align-items:center;gap:11px;}
-.brand-mark{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 32% 30%, var(--flare-2), var(--accent) 120%);flex-shrink:0;position:relative;}
+.brand-mark{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 32% 30%, var(--logo-blush), var(--accent) 120%);flex-shrink:0;position:relative;}
 .brand-mark::after{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--bg);}
 .brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0;letter-spacing:-0.02em;}
 .brand .tagline{margin:2px 0 0;font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;}
@@ -138,8 +141,8 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 .sev-btn.active{color:#fff;border-color:transparent;}
 .sev-btn[data-sev="1"].active{background:var(--flare-1);color:var(--ink);}
 .sev-btn[data-sev="2"].active{background:var(--flare-2);color:var(--ink);}
-.sev-btn[data-sev="3"].active{background:var(--flare-3);}
-.sev-btn[data-sev="4"].active{background:var(--flare-4);}
+.sev-btn[data-sev="3"].active{background:var(--flare-3);color:var(--ink);}
+.sev-btn[data-sev="4"].active{background:var(--flare-4);color:var(--ink);}
 .sev-btn[data-sev="5"].active{background:var(--flare-5);}
 .chip-select{display:flex;gap:6px;flex-wrap:wrap;}
 .chip-opt{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);font-size:12.5px;cursor:pointer;color:var(--ink-soft);}
@@ -172,7 +175,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 /* ---- entries ---- */
 .entry-group-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin:20px 2px 8px;}
 .entry{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:9px;display:flex;gap:11px;align-items:flex-start;}
-.entry.flare-entry{border-left:4px solid var(--flare-3);}
+.entry.flare-entry{border-left:4px solid var(--flare-accent);}
 .entry-thumb{width:44px;height:44px;border-radius:9px;object-fit:cover;flex-shrink:0;cursor:pointer;border:1px solid var(--border);}
 .entry-main{flex:1;min-width:0;}
 .entry-top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
@@ -182,9 +185,9 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 .tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
 .tag{font-size:10.5px;padding:3px 8px;border-radius:20px;background:var(--surface-2);color:var(--ink-soft);border:1px solid var(--border);}
 .tag.flagged{background:#FBF0DE;color:#8A5C1E;border-color:#EAD3A5;font-weight:600;}
-.sev-badge{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12.5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.sev-badge{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12.5px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .del-btn{border:none;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:15px;padding:2px 5px;border-radius:6px;align-self:flex-start;}
-.del-btn:hover{background:var(--surface-2);color:var(--flare-4);}
+.del-btn:hover{background:var(--surface-2);color:var(--danger);}
 
 .empty-state{text-align:center;padding:32px 20px;color:var(--ink-faint);font-size:13px;}
 .empty-state .em-mark{font-size:20px;display:block;margin-bottom:8px;}
@@ -202,6 +205,8 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 .bar-fill{height:100%;background:linear-gradient(90deg, var(--flag), #DDA85E);border-radius:6px 0 0 6px;}
 .bar-baseline{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.5;}
 .suspect-note{font-size:10.5px;color:var(--ink-faint);margin-top:4px;}
+.confidence-badge{text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:0.03em;}
+.ai-insight{font-size:13.5px;line-height:1.5;margin:0 0 12px;color:var(--ink);}
 .disclaimer{font-size:11.5px;color:var(--ink-faint);line-height:1.5;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-top:20px;}
 
 .tabpanel{display:none;}
@@ -344,22 +349,27 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 
   <!-- INSIGHTS TAB -->
   <section class="tabpanel" id="tab-insights">
-    <div class="panel">
-      <h2>My allergies</h2>
-      <div class="chip-select" id="allergy-list" style="margin-bottom:10px;"></div>
-      <div class="field-row">
-        <div class="field">
-          <input type="text" id="allergy-input" placeholder="Add an allergy or sensitivity">
+    <div class="panel" id="ai-panel">
+      <h2>Ask AI (Gemini)</h2>
+      <div id="ai-key-section">
+        <div class="field-row">
+          <div class="field">
+            <label>Gemini API key</label>
+            <input type="password" id="gemini-key-input" placeholder="Paste your API key" autocomplete="off">
+          </div>
         </div>
-        <button class="btn-primary" id="allergy-add" type="button">Add</button>
+        <p class="hint">Free at aistudio.google.com. Stored on this device only — you can forget it anytime.</p>
+        <button class="btn-primary" id="gemini-key-save" type="button">Save key</button>
       </div>
-      <p class="hint">Ingredients matching this list get flagged in your logs, separate from the auto-detected categories below.</p>
-    </div>
-
-    <div class="panel">
-      <h2>Flare locations</h2>
-      <div id="insights-lips-diagram"></div>
-      <div id="lip-zone-stats" style="margin-top:12px;"></div>
+      <div id="ai-key-saved" style="display:none;">
+        <div class="selected-food-bar">
+          <span>Gemini key saved on this device</span>
+          <button type="button" class="mini-link" id="gemini-key-forget">Forget key</button>
+        </div>
+      </div>
+      <p class="hint" id="ai-range-label" style="margin-top:10px;"></p>
+      <button class="btn-primary" id="ai-analyze-btn" type="button" style="width:100%;margin-top:6px;">Analyze with Gemini</button>
+      <div id="ai-result" style="margin-top:14px;"></div>
     </div>
 
     <div class="panel">
@@ -379,6 +389,12 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       <div class="disclaimer">
         This is a pattern-spotting tool, not a diagnosis. A food showing up often before flares means it's worth watching, not confirmed as the cause — reactions can lag, stack, or come from things Trace doesn't track (stress, weather, products). If flares are frequent or severe, bring this log to a dermatologist or allergist.
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>Flare locations</h2>
+      <div id="insights-lips-diagram"></div>
+      <div id="lip-zone-stats" style="margin-top:12px;"></div>
     </div>
 
     <div class="panel">
@@ -403,6 +419,18 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
         <button class="btn-primary" id="export-copy" type="button" style="flex:1;">Copy for chat</button>
         <button class="btn-secondary" id="export-download" type="button">Download .txt</button>
       </div>
+    </div>
+
+    <div class="panel">
+      <h2>My allergies</h2>
+      <div class="chip-select" id="allergy-list" style="margin-bottom:10px;"></div>
+      <div class="field-row">
+        <div class="field">
+          <input type="text" id="allergy-input" placeholder="Add an allergy or sensitivity">
+        </div>
+        <button class="btn-primary" id="allergy-add" type="button">Add</button>
+      </div>
+      <p class="hint">Ingredients matching this list get flagged in your logs, separate from the auto-detected categories below.</p>
     </div>
   </section>
 
@@ -725,6 +753,7 @@ function renderStrip(){
     chip.addEventListener('click', ()=>{
       selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
       $('#f-date').value = dateStr;
+      $('#fl-date').value = dateStr;
       renderCalendar(); renderFoodList(); renderFlareList();
     });
     el.appendChild(chip);
@@ -769,6 +798,7 @@ function renderMonth(){
       const dateStr = c.dataset.date;
       selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
       $('#f-date').value = dateStr;
+      $('#fl-date').value = dateStr;
       renderMonth(); renderFoodList(); renderFlareList();
     });
   });
@@ -1213,13 +1243,13 @@ const LIP_ZONE_RECTS = {
   tl:{x:15,y:35,w:78,h:37}, tm:{x:93,y:35,w:54,h:37}, tr:{x:147,y:35,w:78,h:37},
   bl:{x:15,y:72,w:78,h:40}, bm:{x:93,y:72,w:54,h:40}, br:{x:147,y:72,w:78,h:40}
 };
-function buildLipsSvg(clipId, mode, selectedSet, counts, maxCount){
+function buildLipsSvg(clipId, mode, selectedSet, counts, maxCount, editColor){
   let rects = '';
   for(const z of LIP_ZONES){
     const r = LIP_ZONE_RECTS[z];
     let fill, opacity;
     if(mode==='edit'){
-      fill = selectedSet.has(z) ? '#B23C48' : '#ffffff';
+      fill = selectedSet.has(z) ? (editColor || '#B23C48') : '#ffffff';
       opacity = 1;
     }else{
       const c = (counts && counts[z]) || 0;
@@ -1241,8 +1271,11 @@ function buildLipsSvg(clipId, mode, selectedSet, counts, maxCount){
 }
 
 let selectedLipZones = new Set();
+function currentSeverityColor(){
+  return getComputedStyle(document.documentElement).getPropertyValue('--flare-'+selectedSeverity).trim();
+}
 function renderFlareLipsDiagram(){
-  $('#flare-lips-diagram').innerHTML = buildLipsSvg('editClip', 'edit', selectedLipZones);
+  $('#flare-lips-diagram').innerHTML = buildLipsSvg('editClip', 'edit', selectedLipZones, null, null, currentSeverityColor());
   const labels = Array.from(selectedLipZones).map(z=>LIP_ZONE_LABELS[z]);
   $('#lips-selection-caption').textContent = labels.length ? labels.join(', ') : 'Tap a spot — you can pick more than one';
 }
@@ -1259,6 +1292,7 @@ $('#sev-picker').addEventListener('click',(e)=>{
   const btn = e.target.closest('.sev-btn'); if(!btn) return;
   selectedSeverity = parseInt(btn.dataset.sev,10);
   $$('.sev-btn').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.sev,10)===selectedSeverity));
+  renderFlareLipsDiagram();
 });
 $$('.sev-btn').forEach(b=>{ if(parseInt(b.dataset.sev,10)===selectedSeverity) b.classList.add('active'); });
 $('#fl-photo-btn').addEventListener('click', ()=> $('#fl-photo-input').click());
@@ -1309,7 +1343,7 @@ async function renderFlareList(){
     let thumbHtml='';
     if(entry.hasPhoto){ const url = await getPhoto(entry.id); if(url) thumbHtml = `<img class="entry-thumb" src="${url}">`; }
     div.innerHTML = `
-      <div class="sev-badge" style="background:var(--flare-${entry.severity})">${entry.severity}</div>
+      <div class="sev-badge" style="background:var(--flare-${entry.severity});color:${entry.severity>=5?'#fff':'var(--ink)'}">${entry.severity}</div>
       ${thumbHtml}
       <div class="entry-main">
         <div class="entry-top"><span class="entry-name" style="cursor:default;">${fmtDateFull(entry.date)}</span></div>
@@ -1485,6 +1519,8 @@ function renderExportRangeInputs(){
   const {from,to} = computeExportRange();
   $('#export-from').value = from;
   $('#export-to').value = to;
+  const aiLabel = $('#ai-range-label');
+  if(aiLabel) aiLabel.textContent = `Uses the same range set in Export below: ${from} to ${to}`;
 }
 $$('#export-range-chips .range-chip').forEach(chip=>{
   chip.addEventListener('click', ()=>{
@@ -1565,6 +1601,156 @@ $('#export-download').addEventListener('click', ()=>{
   showToast('Downloaded');
 });
 
+/* ---------------- Gemini AI analysis ---------------- */
+let geminiApiKey = null;
+
+async function loadGeminiKey(){
+  try{ const r = await window.storage.get('trace:geminiKey', false); geminiApiKey = r ? r.value : null; }
+  catch(e){ geminiApiKey = null; }
+  renderGeminiKeyUI();
+}
+function renderGeminiKeyUI(){
+  $('#ai-key-section').style.display = geminiApiKey ? 'none' : 'block';
+  $('#ai-key-saved').style.display = geminiApiKey ? 'block' : 'none';
+}
+$('#gemini-key-save').addEventListener('click', async ()=>{
+  const val = $('#gemini-key-input').value.trim();
+  if(!val){ showToast('Paste a key first', true); return; }
+  geminiApiKey = val;
+  try{ await window.storage.set('trace:geminiKey', val, false); }catch(e){ console.error(e); }
+  $('#gemini-key-input').value = '';
+  renderGeminiKeyUI();
+  showToast('Key saved on this device');
+});
+$('#gemini-key-forget').addEventListener('click', async ()=>{
+  geminiApiKey = null;
+  try{ await window.storage.delete('trace:geminiKey', false); }catch(e){}
+  renderGeminiKeyUI();
+  showToast('Key forgotten');
+});
+
+function buildDailyLogText(from, to){
+  const days = [];
+  let d = new Date(from+'T00:00:00');
+  const end = new Date(to+'T00:00:00');
+  while(d<=end){ days.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+  let out = `## Daily log, ${from} to ${to}\n\n`;
+  days.forEach(dateStr=>{
+    const dayFoods = foodEntries.filter(e=>e.date===dateStr);
+    const dayFlares = flareEntries.filter(f=>f.date===dateStr);
+    out += `### ${dateStr}\n`;
+    if(dayFoods.length===0){
+      out += `Foods: none logged\n`;
+    }else{
+      out += 'Foods: ' + dayFoods.map(e=>{
+        const food = savedFoods.find(f=>f.id===e.savedFoodId);
+        const name = food ? food.name : '(deleted)';
+        const ing = food && food.ingredients.length ? ' — '+food.ingredients.join(', ') : '';
+        const note = e.notes ? ` — note: ${e.notes}` : '';
+        return `${name} (${e.meal||''})${ing}${note}`;
+      }).join('; ') + '\n';
+    }
+    if(dayFlares.length===0){
+      out += `Flare: none\n\n`;
+    }else{
+      out += 'Flare: ' + dayFlares.map(f=>{
+        const loc = (f.lipZones||[]).map(z=>LIP_ZONE_LABELS[z]||z).join(' + ');
+        const note = f.notes ? ` — note: ${f.notes}` : '';
+        return `severity ${f.severity}${loc?', '+loc:''}${note}`;
+      }).join('; ') + '\n\n';
+    }
+  });
+  return out;
+}
+
+function buildGeminiPrompt(from,to){
+  const dailyLog = buildDailyLogText(from,to);
+  const allergyLines = allergies.length ? allergies.map(a=>`- ${a}`).join('\n') : '_None listed._';
+  return `You are analyzing a personal food and skin-flare log from an app called Trace. This data was self-reported by the user to track possible connections between what they eat and flare-ups on their lips.
+
+## Known allergies / sensitivities
+${allergyLines}
+
+${dailyLog}
+Please analyze this log and respond in this exact JSON format, with no text outside the JSON:
+
+{
+  "insight": "2-4 sentence plain-language summary of what stands out in this data",
+  "suspects": [
+    {
+      "label": "short name of the food or ingredient",
+      "confidence": "high | medium | low",
+      "reasoning": "1-2 sentences on why this stood out, referencing the actual log"
+    }
+  ],
+  "caveat": "a short honest note if the data is too sparse or inconclusive to draw real conclusions — say so plainly if that's the case"
+}
+
+Base every suspect strictly on patterns actually present in the log above. Do not invent foods or dates not shown. This is observational pattern-spotting, not a medical diagnosis — do not phrase anything as a confirmed cause. Keep the insight and reasoning concise and specific to this data, not generic advice.`;
+}
+
+async function callGemini(prompt){
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  });
+  if(!res.ok){
+    const errText = await res.text().catch(()=>'');
+    throw new Error(`Gemini API error (${res.status}): ${errText.slice(0,200) || res.statusText}`);
+  }
+  const data = await res.json();
+  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : null;
+  if(!text) throw new Error('Gemini returned an empty response.');
+  let parsed;
+  try{ parsed = JSON.parse(text); }
+  catch(e){ throw new Error("Could not parse Gemini's response as JSON."); }
+  return parsed;
+}
+
+function renderAiResult(result){
+  const confColor = { high:'#B23C48', medium:'#C98A3E', low:'#8B8398' };
+  const el = $('#ai-result');
+  el.innerHTML = `
+    <p class="ai-insight">${escapeHtml(result.insight||'')}</p>
+    ${(result.suspects||[]).map(s=>`
+      <div class="suspect">
+        <div class="suspect-head">
+          <span class="suspect-name">${escapeHtml(s.label||'')}</span>
+          <span class="confidence-badge" style="color:${confColor[s.confidence]||'var(--ink-soft)'};">${escapeHtml(s.confidence||'')}</span>
+        </div>
+        <div class="suspect-note">${escapeHtml(s.reasoning||'')}</div>
+      </div>
+    `).join('')}
+    ${result.caveat ? `<div class="disclaimer" style="margin-top:10px;">${escapeHtml(result.caveat)}</div>` : ''}
+  `;
+}
+
+$('#ai-analyze-btn').addEventListener('click', async ()=>{
+  if(!geminiApiKey){ showToast('Add your Gemini API key first', true); return; }
+  const {from,to} = computeExportRange();
+  const btn = $('#ai-analyze-btn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  showToast('Sending your log to Gemini…');
+  try{
+    const prompt = buildGeminiPrompt(from,to);
+    const result = await callGemini(prompt);
+    renderAiResult(result);
+    showToast('Analysis complete');
+  }catch(err){
+    console.error('Gemini analysis failed', err);
+    showToast(err.message, true);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+});
+
 /* ---------------- init ---------------- */
 (async function init(){
   try{
@@ -1578,6 +1764,7 @@ $('#export-download').addEventListener('click', ()=>{
     renderFoodList();
     renderFlareList();
     renderExportRangeInputs();
+    await loadGeminiKey();
   }catch(err){
     console.error('Init failed', err);
     showToast('App failed to start: ' + err.message, true);
