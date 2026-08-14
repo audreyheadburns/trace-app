@@ -103,6 +103,11 @@ nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var
 .meal-picker{display:flex;gap:6px;}
 .meal-btn{flex:1;padding:9px 0;text-align:center;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-soft);}
 .meal-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.logtype-toggle{display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:16px;}
+.logtype-btn{flex:1;text-align:center;padding:10px 0;border-radius:9px;font-weight:700;font-size:13px;color:var(--ink-soft);cursor:pointer;}
+.logtype-btn.active{background:var(--ink);color:#fff;}
+.section-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin:22px 2px 8px;}
+.section-label:first-of-type{margin-top:6px;}
 
 .food-row{border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--surface-2);}
 .food-row:only-child{margin-bottom:10px;}
@@ -241,12 +246,12 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
     </div>
     <nav class="tabs">
       <button class="tab active" data-tab="log">Log</button>
-      <button class="tab" data-tab="flares">Flares</button>
       <button class="tab" data-tab="insights">Insights</button>
+      <button class="tab" data-tab="myfoods">My Foods</button>
     </nav>
   </header>
 
-  <div class="cal-wrap">
+  <div class="cal-wrap" id="cal-wrap">
     <div class="cal-head">
       <span class="timeline-label" id="cal-label">Last 30 days</span>
       <button class="expand-btn" id="expand-toggle">Expand ▾</button>
@@ -255,10 +260,20 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
     <div class="month-grid" id="month-grid" style="display:none;"></div>
   </div>
 
+  <div class="panel" id="day-notes-panel" style="display:none;">
+    <h2 id="day-notes-title">Notes for today</h2>
+    <textarea id="day-notes-input" placeholder="Sleep, stress, new products, weather — anything worth remembering about this day"></textarea>
+    <p class="hint">Not used in Possible suspects, but included when you Analyze with Gemini.</p>
+  </div>
+
   <!-- LOG TAB -->
   <section class="tabpanel active" id="tab-log">
-    <div class="panel">
-      <h2>Log food</h2>
+    <div class="logtype-toggle" id="logtype-toggle">
+      <div class="logtype-btn active" data-logtype="food">+ Log food</div>
+      <div class="logtype-btn" data-logtype="flare">+ Log flare</div>
+    </div>
+
+    <div class="panel" id="food-form-panel">
       <form id="food-form">
         <div id="food-rows"></div>
         <button type="button" class="add-row-btn" id="add-row-btn">+ Add another food</button>
@@ -292,21 +307,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       </form>
     </div>
 
-    <div class="panel">
-      <div class="manager-toggle" id="mgr-toggle">
-        <h2>My foods</h2>
-        <span class="arrow" id="mgr-arrow">▾ show</span>
-      </div>
-      <div class="manager-list" id="manager-list"></div>
-    </div>
-
-    <div id="food-list"></div>
-  </section>
-
-  <!-- FLARES TAB -->
-  <section class="tabpanel" id="tab-flares">
-    <div class="panel">
-      <h2>Log a flare</h2>
+    <div class="panel" id="flare-form-panel" style="display:none;">
       <form id="flare-form">
         <div class="field-row">
           <div class="field">
@@ -344,7 +345,20 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
         <button type="submit" class="btn-primary">Log flare</button>
       </form>
     </div>
+
+    <div class="section-label" id="food-section-label">Food</div>
+    <div id="food-list"></div>
+
+    <div class="section-label" id="flare-section-label">Flares</div>
     <div id="flare-list"></div>
+  </section>
+
+  <!-- MY FOODS TAB -->
+  <section class="tabpanel" id="tab-myfoods">
+    <div class="panel">
+      <h2>My foods</h2>
+      <div class="manager-list open" id="manager-list"></div>
+    </div>
   </section>
 
   <!-- INSIGHTS TAB -->
@@ -557,6 +571,7 @@ let savedFoods = [];   // {id, name, ingredients:[], flagged:[], category}
 let foodEntries = [];  // {id, savedFoodId, date, time, notes, hasPhoto}
 let flareEntries = []; // {id, date, severity, areas, notes, hasPhoto}
 let allergies = [];    // string[]
+let dayNotes = {};     // dateStr -> free text
 const photoCache = new Map();
 
 let selectedSeverity = 3;
@@ -619,6 +634,7 @@ async function loadData(){
   try{ const r = await window.storage.get('trace:foodEntries', false); foodEntries = r?JSON.parse(r.value):[]; }catch(e){ foodEntries=[]; }
   try{ const r = await window.storage.get('trace:flareEntries', false); flareEntries = r?JSON.parse(r.value):[]; }catch(e){ flareEntries=[]; }
   try{ const r = await window.storage.get('trace:allergies', false); allergies = r?JSON.parse(r.value):[]; }catch(e){ allergies=[]; }
+  try{ const r = await window.storage.get('trace:dayNotes', false); dayNotes = r?JSON.parse(r.value):{}; }catch(e){ dayNotes={}; }
 }
 function migrateLegacyMeals(){
   let changed = false;
@@ -642,6 +658,7 @@ async function saveSavedFoods(){ try{ await window.storage.set('trace:savedFoods
 async function saveFoodEntries(){ try{ await window.storage.set('trace:foodEntries', JSON.stringify(foodEntries), false); }catch(e){ console.error('saveFoodEntries failed', e); } }
 async function saveFlareEntries(){ try{ await window.storage.set('trace:flareEntries', JSON.stringify(flareEntries), false); }catch(e){ console.error('saveFlareEntries failed', e); } }
 async function saveAllergies(){ try{ await window.storage.set('trace:allergies', JSON.stringify(allergies), false); }catch(e){ console.error('saveAllergies failed', e); } }
+async function saveDayNotes(){ try{ await window.storage.set('trace:dayNotes', JSON.stringify(dayNotes), false); }catch(e){ console.error('saveDayNotes failed', e); } }
 
 async function savePhoto(entryId, dataUrl){
   try{ await window.storage.set('trace:photo:'+entryId, dataUrl, false); photoCache.set(entryId, dataUrl); }
@@ -703,6 +720,27 @@ function resizeForOCR(file){
   });
 }
 
+/* ---------------- day notes ---------------- */
+function updateDayNotesPanel(){
+  const panel = $('#day-notes-panel');
+  const activeBtn = $('.tabs button.active');
+  const activeTab = activeBtn ? activeBtn.dataset.tab : 'log';
+  if(activeTab === 'log'){
+    panel.style.display = 'block';
+    $('#day-notes-title').textContent = 'Notes for ' + fmtDateFull(selectedDayFilter);
+    $('#day-notes-input').value = dayNotes[selectedDayFilter] || '';
+  }else{
+    panel.style.display = 'none';
+  }
+}
+$('#day-notes-input').addEventListener('blur', async ()=>{
+  if(!selectedDayFilter) return;
+  const val = $('#day-notes-input').value.trim();
+  if(val) dayNotes[selectedDayFilter] = val;
+  else delete dayNotes[selectedDayFilter];
+  await saveDayNotes();
+});
+
 /* ---------------- tabs ---------------- */
 $$('.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -710,7 +748,10 @@ $$('.tabs button').forEach(btn=>{
     btn.classList.add('active');
     $$('.tabpanel').forEach(p=>p.classList.remove('active'));
     $('#tab-'+btn.dataset.tab).classList.add('active');
+    $('#cal-wrap').style.display = btn.dataset.tab==='log' ? '' : 'none';
     if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); renderLipZoneStats(); }
+    if(btn.dataset.tab === 'myfoods'){ renderManagerList(); }
+    updateDayNotesPanel();
   });
 });
 
@@ -757,10 +798,11 @@ function renderStrip(){
     chip.className = 'day-chip'+(selectedDayFilter===dateStr?' selected':'')+(dateStr===todayS?' today':'');
     chip.innerHTML = `<span class="wd">${dt.toLocaleDateString('en-US',{weekday:'narrow'})}</span><span class="num">${dt.getDate()}</span><span class="day-marks"><span class="dot" ${sev?`style="background:var(--flare-${sev})"`:''}></span>${food?'<span class="food-mark">🍴</span>':''}</span>`;
     chip.addEventListener('click', ()=>{
-      selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
+      selectedDayFilter = dateStr;
       $('#f-date').value = dateStr;
       $('#fl-date').value = dateStr;
       renderCalendar(); renderFoodList(); renderFlareList();
+      updateDayNotesPanel();
     });
     el.appendChild(chip);
   });
@@ -802,10 +844,11 @@ function renderMonth(){
   $$('.cell[data-date]', el).forEach(c=>{
     c.addEventListener('click', ()=>{
       const dateStr = c.dataset.date;
-      selectedDayFilter = selectedDayFilter===dateStr?null:dateStr;
+      selectedDayFilter = dateStr;
       $('#f-date').value = dateStr;
       $('#fl-date').value = dateStr;
       renderMonth(); renderFoodList(); renderFlareList();
+      updateDayNotesPanel();
     });
   });
 }
@@ -910,6 +953,15 @@ function setMeal(meal){
 $('#meal-picker').addEventListener('click', (e)=>{
   const btn = e.target.closest('.meal-btn'); if(!btn) return;
   setMeal(btn.dataset.meal);
+});
+
+/* ---------------- food/flare logtype toggle ---------------- */
+$('#logtype-toggle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.logtype-btn'); if(!btn) return;
+  const type = btn.dataset.logtype;
+  $$('.logtype-btn').forEach(b=> b.classList.toggle('active', b.dataset.logtype===type));
+  $('#food-form-panel').style.display = type==='food' ? 'block' : 'none';
+  $('#flare-form-panel').style.display = type==='flare' ? 'block' : 'none';
 });
 
 function foodRowHtml(rowId){
@@ -1140,17 +1192,9 @@ $('#food-form').addEventListener('submit', async (e)=>{
 });
 
 /* ---------------- saved foods manager ---------------- */
-$('#mgr-toggle').addEventListener('click', ()=>{
-  const list = $('#manager-list');
-  const open = list.classList.toggle('open');
-  $('#mgr-arrow').textContent = open? '▴ hide' : '▾ show';
-  if(open) renderManagerList();
-});
-
 function renderManagerList(){
   const el = $('#manager-list');
-  if(!el.classList.contains('open')) return;
-  if(savedFoods.length===0){ el.innerHTML = `<div class="empty-state">No saved foods yet — log one above to start your list.</div>`; return; }
+  if(savedFoods.length===0){ el.innerHTML = `<div class="empty-state">No saved foods yet — log one to start your list.</div>`; return; }
   const groups = {};
   savedFoods.forEach(f=>{
     const cat = f.category || 'Uncategorized';
@@ -1191,19 +1235,14 @@ function renderManagerList(){
 async function renderFoodList(){
   const el = $('#food-list');
   el.innerHTML='';
-  let list = [...foodEntries].sort((a,b)=>(b.date+(b.meal||'')).localeCompare(a.date+(a.meal||'')));
-  if(selectedDayFilter) list = list.filter(f=>f.date===selectedDayFilter);
+  $('#food-section-label').textContent = 'Food — ' + fmtDateFull(selectedDayFilter);
+  let list = [...foodEntries].filter(f=>f.date===selectedDayFilter).sort((a,b)=>(a.meal||'').localeCompare(b.meal||''));
   if(list.length===0){
-    el.innerHTML = `<div class="empty-state"><span class="em-mark">🍽</span>${selectedDayFilter?'No foods logged that day.':'Nothing logged yet — add your first food above.'}</div>`;
+    el.innerHTML = `<div class="empty-state"><span class="em-mark">🍽</span>Nothing logged yet for this day.</div>`;
     return;
   }
-  let lastDate=null;
   for(const entry of list){
     const food = savedFoods.find(f=>f.id===entry.savedFoodId);
-    if(entry.date!==lastDate){
-      const lbl=document.createElement('div'); lbl.className='entry-group-label'; lbl.textContent=fmtDateFull(entry.date);
-      el.appendChild(lbl); lastDate=entry.date;
-    }
     const div = document.createElement('div');
     div.className='entry';
     let thumbHtml='';
@@ -1337,10 +1376,10 @@ $('#flare-form').addEventListener('submit', async (e)=>{
 async function renderFlareList(){
   const el = $('#flare-list');
   el.innerHTML='';
-  let list = [...flareEntries].sort((a,b)=>b.date.localeCompare(a.date));
-  if(selectedDayFilter) list = list.filter(f=>f.date===selectedDayFilter);
+  $('#flare-section-label').textContent = 'Flares — ' + fmtDateFull(selectedDayFilter);
+  let list = [...flareEntries].filter(f=>f.date===selectedDayFilter);
   if(list.length===0){
-    el.innerHTML = `<div class="empty-state"><span class="em-mark">📍</span>${selectedDayFilter?'No flare logged that day.':'No flares logged yet.'}</div>`;
+    el.innerHTML = `<div class="empty-state"><span class="em-mark">📍</span>No flare logged for this day.</div>`;
     return;
   }
   for(const entry of list){
@@ -1352,7 +1391,6 @@ async function renderFlareList(){
       <div class="sev-badge" style="background:var(--flare-${entry.severity});color:${entry.severity>=5?'#fff':'var(--ink)'}">${entry.severity}</div>
       ${thumbHtml}
       <div class="entry-main">
-        <div class="entry-top"><span class="entry-name" style="cursor:default;">${fmtDateFull(entry.date)}</span></div>
         ${entry.lipZones && entry.lipZones.length?`<div class="tag-row">${entry.lipZones.map(z=>`<span class="tag">${LIP_ZONE_LABELS[z]||z}</span>`).join('')}</div>`:''}
         ${entry.notes?`<div class="entry-notes">${escapeHtml(entry.notes)}</div>`:''}
       </div>
@@ -1657,14 +1695,18 @@ function buildDailyLogText(from, to){
       }).join('; ') + '\n';
     }
     if(dayFlares.length===0){
-      out += `Flare: none\n\n`;
+      out += `Flare: none\n`;
     }else{
       out += 'Flare: ' + dayFlares.map(f=>{
         const loc = (f.lipZones||[]).map(z=>LIP_ZONE_LABELS[z]||z).join(' + ');
         const note = f.notes ? ` — note: ${f.notes}` : '';
         return `severity ${f.severity}${loc?', '+loc:''}${note}`;
-      }).join('; ') + '\n\n';
+      }).join('; ') + '\n';
     }
+    if(dayNotes[dateStr]){
+      out += `Day notes: ${dayNotes[dateStr]}\n`;
+    }
+    out += '\n';
   });
   return out;
 }
@@ -1775,6 +1817,7 @@ $('#ai-analyze-btn').addEventListener('click', async ()=>{
     renderFoodList();
     renderFlareList();
     renderExportRangeInputs();
+    updateDayNotesPanel();
     await loadGeminiKey();
   }catch(err){
     console.error('Init failed', err);
