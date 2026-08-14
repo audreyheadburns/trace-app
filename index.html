@@ -921,19 +921,32 @@ $('#scan-recipe-input').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   e.target.value = '';
   if(!file) return;
-  showToast('Reading recipe photo… this can take a few seconds');
   try{
     const dataUrl = await resizeForOCR(file);
-    await loadTesseract();
-    const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng');
-    const { name, ingredients } = parseRecipeText(text);
+    let name = '', ingredients = [];
+
+    if(geminiApiKey){
+      showToast('Reading recipe with Gemini…');
+      const result = await callGeminiVision(buildRecipeScanPrompt(), dataUrl);
+      name = (result && result.name ? String(result.name) : '').slice(0,80);
+      ingredients = Array.isArray(result && result.ingredients)
+        ? result.ingredients.map(s=>String(s).trim()).filter(Boolean).slice(0,25)
+        : [];
+    }else{
+      showToast('Reading recipe photo… this can take a few seconds');
+      await loadTesseract();
+      const { data: { text } } = await Tesseract.recognize(dataUrl, 'eng');
+      const parsed = parseRecipeText(text);
+      name = parsed.name; ingredients = parsed.ingredients;
+    }
+
     if(!name && ingredients.length===0){
-      showToast('Could not find readable text in that photo — try a clearer, well-lit shot.', true);
+      showToast('Could not find a readable recipe in that photo — try a clearer, well-lit shot.', true);
       return;
     }
     openScanReviewModal(name, ingredients);
   }catch(err){
-    console.error('OCR failed', err);
+    console.error('Recipe scan failed', err);
     showToast('Could not read that photo: ' + err.message, true);
   }
 });
@@ -1833,6 +1846,50 @@ async function callGemini(prompt){
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  });
+  if(!res.ok){
+    const errText = await res.text().catch(()=>'');
+    throw new Error(`Gemini API error (${res.status}): ${errText.slice(0,200) || res.statusText}`);
+  }
+  const data = await res.json();
+  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : null;
+  if(!text) throw new Error('Gemini returned an empty response.');
+  let parsed;
+  try{ parsed = JSON.parse(text); }
+  catch(e){ throw new Error("Could not parse Gemini's response as JSON."); }
+  return parsed;
+}
+
+function dataUrlToBase64(dataUrl){
+  const idx = dataUrl.indexOf(',');
+  return idx>=0 ? dataUrl.slice(idx+1) : dataUrl;
+}
+function dataUrlMimeType(dataUrl){
+  const match = dataUrl.match(/^data:([^;]+);/);
+  return match ? match[1] : 'image/jpeg';
+}
+function buildRecipeScanPrompt(){
+  return `You are reading a photo of a recipe — a recipe card, cookbook page, handwritten note, or food label. Extract the dish name and its ingredient list.
+
+Respond in this exact JSON format, with no text outside the JSON:
+{
+  "name": "the dish name, or an empty string if you can't tell",
+  "ingredients": ["ingredient 1", "ingredient 2"]
+}
+
+Keep each ingredient as a short phrase (e.g. "2 cups flour"), not a full sentence. Only include the ingredients list — leave out cooking instructions or steps. If the photo has no readable recipe content, return empty values rather than guessing.`;
+}
+async function callGeminiVision(prompt, imageDataUrl){
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { text: prompt },
+        { inline_data: { mime_type: dataUrlMimeType(imageDataUrl), data: dataUrlToBase64(imageDataUrl) } }
+      ] }],
       generationConfig: { responseMimeType: 'application/json' }
     })
   });
