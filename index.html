@@ -1713,26 +1713,44 @@ async function renderStorageBreakdown(){
     const coreDataBytes = JSON.stringify({savedFoods,foodEntries,flareEntries,allergies,dayNotes}).length;
     const totalApprox = photoBytes + coreDataBytes;
 
-    let quotaLine = '';
+    let usageBytes = null, quotaBytes = null;
     try{
       if(navigator.storage && navigator.storage.estimate){
         const est = await navigator.storage.estimate();
-        if(est && est.quota) quotaLine = `<p class="hint">Your browser allows this site up to about ${formatBytes(est.quota)} total — Trace is nowhere near that limit.</p>`;
+        usageBytes = typeof est.usage === 'number' ? est.usage : null;
+        quotaBytes = typeof est.quota === 'number' ? est.quota : null;
       }
     }catch(e){}
 
+    let headline;
+    if(usageBytes!==null && quotaBytes){
+      const pct = usageBytes / quotaBytes * 100;
+      const pctDisplay = pct < 0.1 ? '<0.1' : pct.toFixed(pct<1?2:1);
+      headline = `
+        <div style="text-align:center;margin-bottom:8px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;color:var(--ink);">${formatBytes(usageBytes)} <span style="color:var(--ink-faint);font-weight:400;font-size:14px;">of ${formatBytes(quotaBytes)}</span></div>
+          <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${pctDisplay}% of your available quota</div>
+        </div>
+        <div class="bar-track" style="margin-bottom:16px;">
+          <div class="bar-fill" style="width:${Math.max(pct,0.4)}%"></div>
+        </div>`;
+    }else{
+      headline = `
+        <div class="stat-row">
+          <div class="stat-box"><div class="num">${formatBytes(totalApprox)}</div><div class="lbl">used by Trace (approx.)</div></div>
+          <div class="stat-box"><div class="num">${photoCount}</div><div class="lbl">photos stored</div></div>
+        </div>`;
+    }
+
     el.innerHTML = `
-      <div class="stat-row">
-        <div class="stat-box"><div class="num">${formatBytes(totalApprox)}</div><div class="lbl">used by Trace (approx.)</div></div>
-        <div class="stat-box"><div class="num">${photoCount}</div><div class="lbl">photos stored</div></div>
-      </div>
+      ${headline}
+      <div class="section-label" style="margin:0 2px 6px;">Breakdown (approximate)</div>
       <div class="suspect">
-        <div class="suspect-head"><span class="suspect-name">Photos</span><span class="suspect-pct">${formatBytes(photoBytes)}</span></div>
+        <div class="suspect-head"><span class="suspect-name">Photos</span><span class="suspect-pct">${formatBytes(photoBytes)} · ${photoCount} photo${photoCount===1?'':'s'}</span></div>
       </div>
       <div class="suspect">
         <div class="suspect-head"><span class="suspect-name">Logs, foods, notes</span><span class="suspect-pct">${formatBytes(coreDataBytes)}</span></div>
       </div>
-      ${quotaLine}
     `;
   }catch(err){
     console.error('Storage breakdown failed', err);
