@@ -50,6 +50,8 @@ header{padding:26px 0 16px;display:flex;align-items:flex-end;justify-content:spa
 nav.tabs{display:flex;gap:4px;background:var(--surface-2);padding:4px;border-radius:12px;border:1px solid var(--border);}
 nav.tabs button{border:none;background:transparent;padding:8px 13px;border-radius:9px;font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;}
 nav.tabs button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);}
+.settings-btn{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink-soft);font-size:15px;cursor:pointer;flex-shrink:0;}
+.settings-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 
 /* ---- day strip / calendar ---- */
 .cal-wrap{margin:4px 0 22px;}
@@ -244,11 +246,14 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       <div class="brand-mark"></div>
       <div><h1>Trace</h1><p class="tagline">food &amp; flare journal</p></div>
     </div>
-    <nav class="tabs">
-      <button class="tab active" data-tab="log">Log</button>
-      <button class="tab" data-tab="insights">Insights</button>
-      <button class="tab" data-tab="myfoods">My Foods</button>
-    </nav>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <nav class="tabs">
+        <button class="tab active" data-tab="log">Log</button>
+        <button class="tab" data-tab="insights">Insights</button>
+        <button class="tab" data-tab="myfoods">My Foods</button>
+      </nav>
+      <button class="settings-btn" id="settings-btn" aria-label="Settings" type="button">⚙</button>
+    </div>
   </header>
 
   <div class="cal-wrap" id="cal-wrap">
@@ -359,23 +364,8 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   <section class="tabpanel" id="tab-insights">
     <div class="panel" id="ai-panel">
       <h2>Ask AI (Gemini)</h2>
-      <div id="ai-key-section">
-        <div class="field-row">
-          <div class="field">
-            <label>Gemini API key</label>
-            <input type="password" id="gemini-key-input" placeholder="Paste your API key" autocomplete="off">
-          </div>
-        </div>
-        <p class="hint">Free at aistudio.google.com. Stored on this device only — you can forget it anytime.</p>
-        <button class="btn-primary" id="gemini-key-save" type="button">Save key</button>
-      </div>
-      <div id="ai-key-saved" style="display:none;">
-        <div class="selected-food-bar">
-          <span>Gemini key saved on this device</span>
-          <button type="button" class="mini-link" id="gemini-key-forget">Forget key</button>
-        </div>
-      </div>
-      <p class="hint" id="ai-range-label" style="margin-top:10px;"></p>
+      <p class="hint" id="ai-key-status"></p>
+      <p class="hint" id="ai-range-label" style="margin-top:4px;"></p>
       <button class="btn-primary" id="ai-analyze-btn" type="button" style="width:100%;margin-top:6px;">Analyze with Gemini</button>
       <div id="ai-result" style="margin-top:14px;"></div>
     </div>
@@ -439,6 +429,34 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
         <button class="btn-primary" id="allergy-add" type="button">Add</button>
       </div>
       <p class="hint">Ingredients matching this list get flagged in your logs, separate from the auto-detected categories below.</p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="tabpanel" id="tab-settings">
+    <div class="panel">
+      <h2>Gemini API key</h2>
+      <div id="ai-key-section">
+        <div class="field-row">
+          <div class="field">
+            <label>Gemini API key</label>
+            <input type="password" id="gemini-key-input" placeholder="Paste your API key" autocomplete="off">
+          </div>
+        </div>
+        <p class="hint">Free at aistudio.google.com. Stored on this device only — you can forget it anytime.</p>
+        <button class="btn-primary" id="gemini-key-save" type="button">Save key</button>
+      </div>
+      <div id="ai-key-saved" style="display:none;">
+        <div class="selected-food-bar">
+          <span>Gemini key saved on this device</span>
+          <button type="button" class="mini-link" id="gemini-key-forget">Forget key</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Storage</h2>
+      <div id="storage-breakdown"><p class="hint">Calculating…</p></div>
     </div>
   </section>
 
@@ -718,7 +736,8 @@ function resizeForOCR(file){
 function updateDayNotesPanel(){
   const panel = $('#day-notes-panel');
   const activeBtn = $('.tabs button.active');
-  const activeTab = activeBtn ? activeBtn.dataset.tab : 'log';
+  const settingsActive = $('#settings-btn').classList.contains('active');
+  const activeTab = settingsActive ? 'settings' : (activeBtn ? activeBtn.dataset.tab : 'log');
   if(activeTab === 'log'){
     panel.style.display = 'block';
     $('#day-notes-title').textContent = 'Notes for ' + fmtDateFull(selectedDayFilter);
@@ -740,13 +759,25 @@ $$('.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     $$('.tabs button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
+    $('#settings-btn').classList.remove('active');
     $$('.tabpanel').forEach(p=>p.classList.remove('active'));
     $('#tab-'+btn.dataset.tab).classList.add('active');
     $('#cal-wrap').style.display = btn.dataset.tab==='log' ? '' : 'none';
-    if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); renderLipZoneStats(); }
+    if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); renderLipZoneStats(); renderGeminiKeyUI(); }
     if(btn.dataset.tab === 'myfoods'){ renderManagerList(); }
     updateDayNotesPanel();
   });
+});
+
+$('#settings-btn').addEventListener('click', ()=>{
+  $$('.tabs button').forEach(b=>b.classList.remove('active'));
+  $('#settings-btn').classList.add('active');
+  $$('.tabpanel').forEach(p=>p.classList.remove('active'));
+  $('#tab-settings').classList.add('active');
+  $('#cal-wrap').style.display = 'none';
+  updateDayNotesPanel();
+  renderGeminiKeyUI();
+  renderStorageBreakdown();
 });
 
 /* ---------------- calendar / strip ---------------- */
@@ -1650,6 +1681,52 @@ $('#export-download').addEventListener('click', ()=>{
   showToast('Downloaded');
 });
 
+/* ---------------- storage breakdown ---------------- */
+function formatBytes(n){
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(1) + ' MB';
+}
+async function renderStorageBreakdown(){
+  const el = $('#storage-breakdown');
+  el.innerHTML = '<p class="hint">Calculating…</p>';
+  try{
+    let photoBytes = 0, photoCount = 0;
+    const photoEntries = [...foodEntries.filter(e=>e.hasPhoto), ...flareEntries.filter(e=>e.hasPhoto)];
+    for(const e of photoEntries){
+      const url = await getPhoto(e.id);
+      if(url){ photoBytes += url.length; photoCount++; }
+    }
+    const coreDataBytes = JSON.stringify({savedFoods,foodEntries,flareEntries,allergies,dayNotes}).length;
+    const totalApprox = photoBytes + coreDataBytes;
+
+    let quotaLine = '';
+    try{
+      if(navigator.storage && navigator.storage.estimate){
+        const est = await navigator.storage.estimate();
+        if(est && est.quota) quotaLine = `<p class="hint">Your browser allows this site up to about ${formatBytes(est.quota)} total — Trace is nowhere near that limit.</p>`;
+      }
+    }catch(e){}
+
+    el.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${formatBytes(totalApprox)}</div><div class="lbl">used by Trace (approx.)</div></div>
+        <div class="stat-box"><div class="num">${photoCount}</div><div class="lbl">photos stored</div></div>
+      </div>
+      <div class="suspect">
+        <div class="suspect-head"><span class="suspect-name">Photos</span><span class="suspect-pct">${formatBytes(photoBytes)}</span></div>
+      </div>
+      <div class="suspect">
+        <div class="suspect-head"><span class="suspect-name">Logs, foods, notes</span><span class="suspect-pct">${formatBytes(coreDataBytes)}</span></div>
+      </div>
+      ${quotaLine}
+    `;
+  }catch(err){
+    console.error('Storage breakdown failed', err);
+    el.innerHTML = '<p class="hint">Could not calculate storage usage.</p>';
+  }
+}
+
 /* ---------------- Gemini AI analysis ---------------- */
 let geminiApiKey = null;
 
@@ -1661,6 +1738,10 @@ async function loadGeminiKey(){
 function renderGeminiKeyUI(){
   $('#ai-key-section').style.display = geminiApiKey ? 'none' : 'block';
   $('#ai-key-saved').style.display = geminiApiKey ? 'block' : 'none';
+  const statusEl = $('#ai-key-status');
+  if(statusEl){
+    statusEl.textContent = geminiApiKey ? 'Using your saved Gemini key.' : 'No Gemini key saved yet — add one in Settings ⚙';
+  }
 }
 $('#gemini-key-save').addEventListener('click', async ()=>{
   const val = $('#gemini-key-input').value.trim();
@@ -1787,7 +1868,7 @@ function renderAiResult(result){
 }
 
 $('#ai-analyze-btn').addEventListener('click', async ()=>{
-  if(!geminiApiKey){ showToast('Add your Gemini API key first', true); return; }
+  if(!geminiApiKey){ showToast('Add your Gemini API key in Settings first', true); return; }
   const {from,to} = computeExportRange();
   const btn = $('#ai-analyze-btn');
   const origText = btn.textContent;
