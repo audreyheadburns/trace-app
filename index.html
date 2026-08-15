@@ -439,6 +439,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   <section class="tabpanel" id="tab-settings">
     <div class="panel">
       <h2>My foods</h2>
+      <button type="button" class="btn-secondary" id="estimate-all-btn" style="width:100%;margin-bottom:10px;">Estimate nutrition for all foods</button>
       <div class="manager-list open" id="manager-list"></div>
     </div>
 
@@ -1182,6 +1183,55 @@ async function estimateNutritionForFood(name, ingredientsRaw){
   };
 }
 
+async function autoEstimateNewFoods(foods){
+  let successCount = 0;
+  for(const food of foods){
+    try{
+      const nutrition = await estimateNutritionForFood(food.name, food.ingredients.join(', '));
+      food.nutrition = nutrition;
+      await saveSavedFoods();
+      renderManagerList();
+      renderNutritionTab();
+      successCount++;
+    }catch(err){
+      console.error('Auto nutrition estimate failed for', food.name, err);
+    }
+  }
+  if(successCount>0){
+    showToast(`Nutrition estimated for ${successCount} new food${successCount>1?'s':''}`);
+  }
+}
+
+async function estimateAllMissingNutrition(){
+  if(!geminiApiKey){ showToast('Add your Gemini API key in Settings first', true); return; }
+  const missing = savedFoods.filter(f=>!f.nutrition);
+  if(missing.length===0){ showToast('All your foods already have nutrition estimates'); return; }
+  const btn = $('#estimate-all-btn');
+  btn.disabled = true;
+  let successCount = 0;
+  for(let i=0;i<missing.length;i++){
+    btn.textContent = `Estimating ${i+1} of ${missing.length}…`;
+    try{
+      missing[i].nutrition = await estimateNutritionForFood(missing[i].name, missing[i].ingredients.join(', '));
+      await saveSavedFoods();
+      successCount++;
+    }catch(err){
+      console.error('Backfill estimate failed for', missing[i].name, err);
+    }
+  }
+  renderManagerList();
+  renderNutritionTab();
+  showToast(`Estimated nutrition for ${successCount} of ${missing.length} food${missing.length===1?'':'s'} — this also fills in past days that used them.`);
+}
+$('#estimate-all-btn').addEventListener('click', estimateAllMissingNutrition);
+function updateEstimateAllButtonLabel(){
+  const btn = $('#estimate-all-btn');
+  if(!btn) return;
+  const missing = savedFoods.filter(f=>!f.nutrition).length;
+  btn.disabled = missing===0;
+  btn.textContent = missing>0 ? `Estimate nutrition for all foods (${missing} missing)` : 'All foods have nutrition estimates';
+}
+
 $('#em-estimate-nutrition').addEventListener('click', async ()=>{
   const name = $('#em-name').value.trim();
   const ingredientsRaw = $('#em-ingredients').value.trim();
@@ -1297,7 +1347,8 @@ $('#food-form').addEventListener('submit', async (e)=>{
           const newFood = {
             id: uid(), name: typedName, ingredients,
             flagged: matchIngredients(ingredientsRaw || typedName),
-            category: guessCategory(typedName, ingredientsRaw)
+            category: guessCategory(typedName, ingredientsRaw),
+            nutrition: null
           };
           savedFoods.push(newFood);
           foodId = newFood.id;
@@ -1320,6 +1371,18 @@ $('#food-form').addEventListener('submit', async (e)=>{
     resetFoodForm();
     renderCalendar(); renderFoodList(); renderManagerList();
     showToast(`Logged ${entryIds.length} item${entryIds.length>1?'s':''}`);
+
+    if(geminiApiKey){
+      const needsEstimate = [];
+      const seen = new Set();
+      for(const foodId of foodIdsToLog){
+        if(seen.has(foodId)) continue;
+        seen.add(foodId);
+        const food = savedFoods.find(f=>f.id===foodId);
+        if(food && !food.nutrition) needsEstimate.push(food);
+      }
+      if(needsEstimate.length>0) autoEstimateNewFoods(needsEstimate);
+    }
   }catch(err){
     console.error('Food submit failed', err);
     showToast('Could not log that food: ' + err.message, true);
@@ -1329,6 +1392,7 @@ $('#food-form').addEventListener('submit', async (e)=>{
 /* ---------------- saved foods manager ---------------- */
 function renderManagerList(){
   const el = $('#manager-list');
+  updateEstimateAllButtonLabel();
   if(savedFoods.length===0){ el.innerHTML = `<div class="empty-state">No saved foods yet — log one to start your list.</div>`; return; }
   const groups = {};
   savedFoods.forEach(f=>{
