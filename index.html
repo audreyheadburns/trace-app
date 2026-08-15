@@ -250,7 +250,7 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
       <nav class="tabs">
         <button class="tab active" data-tab="log">Log</button>
         <button class="tab" data-tab="insights">Insights</button>
-        <button class="tab" data-tab="myfoods">My Foods</button>
+        <button class="tab" data-tab="nutrition">Nutrition</button>
       </nav>
       <button class="settings-btn" id="settings-btn" aria-label="Settings" type="button">⚙</button>
     </div>
@@ -353,11 +353,14 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   </section>
 
   <!-- MY FOODS TAB -->
-  <section class="tabpanel" id="tab-myfoods">
+  <!-- NUTRITION TAB -->
+  <section class="tabpanel" id="tab-nutrition">
     <div class="panel">
-      <h2>My foods</h2>
-      <div class="manager-list open" id="manager-list"></div>
+      <h2 id="nutrition-day-title">Nutrition — today</h2>
+      <div id="nutrition-summary"></div>
     </div>
+    <div class="section-label">Foods this day</div>
+    <div id="nutrition-food-list"></div>
   </section>
 
   <!-- INSIGHTS TAB -->
@@ -435,6 +438,11 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
   <!-- SETTINGS -->
   <section class="tabpanel" id="tab-settings">
     <div class="panel">
+      <h2>My foods</h2>
+      <div class="manager-list open" id="manager-list"></div>
+    </div>
+
+    <div class="panel">
       <h2>Gemini API key</h2>
       <div id="ai-key-section">
         <div class="field-row">
@@ -496,6 +504,11 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
           <option value="Dessert"><option value="Drinks"><option value="Snacks">
           <option value="Asian"><option value="Uncategorized">
         </datalist>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label>Nutrition (estimated by AI)</label>
+        <div id="em-nutrition-display"></div>
+        <button type="button" class="btn-secondary" id="em-estimate-nutrition" style="margin-top:6px;width:100%;">Estimate nutrition</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn-primary" id="em-save" style="flex:1;">Save changes</button>
@@ -762,9 +775,9 @@ $$('.tabs button').forEach(btn=>{
     $('#settings-btn').classList.remove('active');
     $$('.tabpanel').forEach(p=>p.classList.remove('active'));
     $('#tab-'+btn.dataset.tab).classList.add('active');
-    $('#cal-wrap').style.display = btn.dataset.tab==='log' ? '' : 'none';
+    $('#cal-wrap').style.display = (btn.dataset.tab==='log' || btn.dataset.tab==='nutrition') ? '' : 'none';
     if(btn.dataset.tab === 'insights'){ renderAllergyList(); renderInsights(); renderExportRangeInputs(); renderLipZoneStats(); renderGeminiKeyUI(); }
-    if(btn.dataset.tab === 'myfoods'){ renderManagerList(); }
+    if(btn.dataset.tab === 'nutrition'){ renderNutritionTab(); }
     updateDayNotesPanel();
   });
 });
@@ -776,6 +789,7 @@ $('#settings-btn').addEventListener('click', ()=>{
   $('#tab-settings').classList.add('active');
   $('#cal-wrap').style.display = 'none';
   updateDayNotesPanel();
+  renderManagerList();
   renderGeminiKeyUI();
   renderStorageBreakdown();
 });
@@ -828,6 +842,7 @@ function renderStrip(){
       $('#fl-date').value = dateStr;
       renderCalendar(); renderFoodList(); renderFlareList();
       updateDayNotesPanel();
+      renderNutritionTab();
     });
     el.appendChild(chip);
   });
@@ -874,6 +889,7 @@ function renderMonth(){
       $('#fl-date').value = dateStr;
       renderMonth(); renderFoodList(); renderFlareList();
       updateDayNotesPanel();
+      renderNutritionTab();
     });
   });
 }
@@ -1114,26 +1130,107 @@ function selectSavedFoodInRow(rowEl, food){
 }
 
 /* ---------------- edit saved food modal ---------------- */
+let pendingNutritionEstimate = null;
+
+function renderNutritionDisplay(nutrition){
+  const el = $('#em-nutrition-display');
+  if(!nutrition){
+    el.innerHTML = `<p class="hint" style="margin:0;">Not estimated yet.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="tag-row">
+      <span class="tag">${nutrition.calories} cal</span>
+      <span class="tag">${nutrition.protein_g}g protein</span>
+      <span class="tag">${nutrition.carbs_g}g carbs</span>
+      <span class="tag">${nutrition.fat_g}g fat</span>
+      <span class="tag">${nutrition.fiber_g}g fiber</span>
+      <span class="tag">${nutrition.sugar_g}g sugar</span>
+      <span class="tag">${nutrition.sodium_mg}mg sodium</span>
+    </div>
+  `;
+}
+
+function buildNutritionPrompt(name, ingredientsRaw){
+  return `You are estimating rough nutrition information for a home-cooked or common food based on its name and ingredients. This is for a personal food-tracking app — exact quantities are not provided, so treat this as one typical serving and give your best reasonable estimate, not a precise lab measurement.
+
+Food: ${name}
+Ingredients: ${ingredientsRaw || '(not specified)'}
+
+Respond in this exact JSON format, with no text outside the JSON:
+{
+  "calories": <number>,
+  "protein_g": <number>,
+  "carbs_g": <number>,
+  "fat_g": <number>,
+  "fiber_g": <number>,
+  "sugar_g": <number>,
+  "sodium_mg": <number>
+}
+
+All values are for one typical serving. Use 0 if genuinely negligible. Numbers only, no units in the values.`;
+}
+
+async function estimateNutritionForFood(name, ingredientsRaw){
+  if(!geminiApiKey) throw new Error('No Gemini key saved — add one in Settings first.');
+  const result = await callGemini(buildNutritionPrompt(name, ingredientsRaw));
+  const num = (v)=> typeof v==='number' && isFinite(v) ? Math.max(0, Math.round(v*10)/10) : 0;
+  return {
+    calories: num(result.calories), protein_g: num(result.protein_g), carbs_g: num(result.carbs_g),
+    fat_g: num(result.fat_g), fiber_g: num(result.fiber_g), sugar_g: num(result.sugar_g),
+    sodium_mg: num(result.sodium_mg), estimatedAt: todayStr()
+  };
+}
+
+$('#em-estimate-nutrition').addEventListener('click', async ()=>{
+  const name = $('#em-name').value.trim();
+  const ingredientsRaw = $('#em-ingredients').value.trim();
+  if(!name){ showToast('Enter a food name first', true); return; }
+  const btn = $('#em-estimate-nutrition');
+  const origText = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Estimating…';
+  try{
+    const nutrition = await estimateNutritionForFood(name, ingredientsRaw);
+    if(editingFoodId){
+      const food = savedFoods.find(f=>f.id===editingFoodId);
+      if(food){ food.nutrition = nutrition; await saveSavedFoods(); renderManagerList(); }
+    }else{
+      pendingNutritionEstimate = nutrition;
+    }
+    renderNutritionDisplay(nutrition);
+    showToast('Nutrition estimated');
+  }catch(err){
+    console.error('Nutrition estimate failed', err);
+    showToast(err.message, true);
+  }finally{
+    btn.disabled = false; btn.textContent = origText;
+  }
+});
+
 function openEditModal(foodId){
   const food = savedFoods.find(f=>f.id===foodId);
   if(!food) return;
   editingFoodId = foodId;
+  pendingNutritionEstimate = null;
   $('#em-title').textContent = 'Edit food';
   $('#em-ingredients-hint').textContent = 'Updates every past entry logged with this food.';
   $('#em-save').textContent = 'Save changes';
   $('#em-name').value = food.name;
   $('#em-ingredients').value = food.ingredients.join(', ');
   $('#em-category').value = food.category || '';
+  renderNutritionDisplay(food.nutrition || null);
   $('#edit-modal').classList.add('open');
 }
 function openScanReviewModal(guessedName, guessedIngredients){
   editingFoodId = null;
+  pendingNutritionEstimate = null;
   $('#em-title').textContent = 'Review scanned recipe';
   $('#em-ingredients-hint').textContent = 'Scanned text can be imperfect — check it over before saving.';
   $('#em-save').textContent = 'Save to My Foods';
   $('#em-name').value = guessedName;
   $('#em-ingredients').value = guessedIngredients.join(', ');
   $('#em-category').value = guessCategory(guessedName, guessedIngredients.join(', '));
+  renderNutritionDisplay(null);
   $('#edit-modal').classList.add('open');
 }
 $('#em-cancel').addEventListener('click', ()=> $('#edit-modal').classList.remove('open'));
@@ -1152,7 +1249,8 @@ $('#em-save').addEventListener('click', async ()=>{
     food.category = category;
   }else{
     if(!name){ showToast('Enter a food name', true); return; }
-    savedFoods.push({ id: uid(), name, ingredients, flagged: matchIngredients(ingredientsRaw||name), category });
+    savedFoods.push({ id: uid(), name, ingredients, flagged: matchIngredients(ingredientsRaw||name), category, nutrition: pendingNutritionEstimate || null });
+    pendingNutritionEstimate = null;
   }
   await saveSavedFoods();
   $('#edit-modal').classList.remove('open');
@@ -1247,7 +1345,7 @@ function renderManagerList(){
     const rows = items.map(f=>`
       <div class="mf-row">
         <div>
-          <div class="mf-name">${escapeHtml(f.name)}</div>
+          <div class="mf-name">${escapeHtml(f.name)}${f.nutrition?` <span class="tag" style="margin-left:4px;">${f.nutrition.calories} cal</span>`:''}</div>
           <div class="mf-tags">${f.ingredients.length} ingredient${f.ingredients.length===1?'':'s'}${f.flagged.length? ' · '+f.flagged.map(k=>TRIGGER_DICT[k].label).join(', '):''}</div>
         </div>
         <div class="mf-actions">
@@ -1492,6 +1590,77 @@ async function addAllergy(){
   renderAllergyList();
   renderFoodList();
   renderInsights();
+}
+
+/* ---------------- nutrition tab ---------------- */
+function renderNutritionTab(){
+  $('#nutrition-day-title').textContent = 'Nutrition — ' + fmtDateFull(selectedDayFilter);
+  const dayEntries = foodEntries.filter(e=>e.date===selectedDayFilter);
+  const totals = { calories:0, protein_g:0, carbs_g:0, fat_g:0, fiber_g:0, sugar_g:0, sodium_mg:0 };
+  let estimatedCount = 0, missingCount = 0;
+  const rows = [];
+
+  dayEntries.forEach(e=>{
+    const food = savedFoods.find(f=>f.id===e.savedFoodId);
+    if(!food){ return; }
+    if(food.nutrition){
+      estimatedCount++;
+      Object.keys(totals).forEach(k=> totals[k] += food.nutrition[k] || 0);
+      rows.push({ name: food.name, meal: e.meal, nutrition: food.nutrition, foodId: food.id });
+    }else{
+      missingCount++;
+      rows.push({ name: food.name, meal: e.meal, nutrition: null, foodId: food.id });
+    }
+  });
+
+  const summaryEl = $('#nutrition-summary');
+  if(dayEntries.length===0){
+    summaryEl.innerHTML = `<div class="empty-state"><span class="em-mark">🍽</span>Nothing logged for this day yet.</div>`;
+  }else if(estimatedCount===0){
+    summaryEl.innerHTML = `<div class="empty-state"><span class="em-mark">🔥</span>None of today's foods have a nutrition estimate yet. Add one from My Foods (edit a food → Estimate nutrition).</div>`;
+  }else{
+    const round = n => Math.round(n*10)/10;
+    summaryEl.innerHTML = `
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${round(totals.calories)}</div><div class="lbl">calories</div></div>
+        <div class="stat-box"><div class="num">${round(totals.protein_g)}g</div><div class="lbl">protein</div></div>
+        <div class="stat-box"><div class="num">${round(totals.carbs_g)}g</div><div class="lbl">carbs</div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${round(totals.fat_g)}g</div><div class="lbl">fat</div></div>
+        <div class="stat-box"><div class="num">${round(totals.fiber_g)}g</div><div class="lbl">fiber</div></div>
+        <div class="stat-box"><div class="num">${round(totals.sugar_g)}g</div><div class="lbl">sugar</div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${round(totals.sodium_mg)}mg</div><div class="lbl">sodium</div></div>
+      </div>
+      ${missingCount>0?`<p class="hint">${missingCount} food${missingCount===1?'':'s'} today ${missingCount===1?"isn't":"aren't"} counted — no nutrition estimate yet.</p>`:''}
+      <div class="disclaimer">Estimated by AI from ingredient names, not exact quantities — treat these as a rough ballpark, not a precise count.</div>
+    `;
+  }
+
+  const listEl = $('#nutrition-food-list');
+  if(rows.length===0){
+    listEl.innerHTML = '';
+  }else{
+    listEl.innerHTML = rows.map(r=>`
+      <div class="entry">
+        <div class="entry-main">
+          <div class="entry-top">
+            <span class="entry-name">${escapeHtml(r.name)}</span>
+            ${r.meal?`<span class="entry-time">${r.meal}</span>`:''}
+          </div>
+          ${r.nutrition
+            ? `<div class="tag-row"><span class="tag">${r.nutrition.calories} cal</span><span class="tag">${r.nutrition.protein_g}g protein</span><span class="tag">${r.nutrition.carbs_g}g carbs</span><span class="tag">${r.nutrition.fat_g}g fat</span></div>`
+            : `<div class="entry-notes">No estimate yet</div>`}
+        </div>
+      </div>
+    `).join('');
+    $$('#nutrition-food-list .entry-name').forEach((el,i)=>{
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', ()=> openEditModal(rows[i].foodId));
+    });
+  }
 }
 
 /* ---------------- insights ---------------- */
@@ -1979,6 +2148,7 @@ $('#ai-analyze-btn').addEventListener('click', async ()=>{
     renderFlareList();
     renderExportRangeInputs();
     updateDayNotesPanel();
+    renderNutritionTab();
     await loadGeminiKey();
   }catch(err){
     console.error('Init failed', err);
