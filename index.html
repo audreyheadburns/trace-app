@@ -1133,6 +1133,42 @@ function selectSavedFoodInRow(rowEl, food){
 /* ---------------- edit saved food modal ---------------- */
 let pendingNutritionEstimate = null;
 
+const NUTRIENT_META = [
+  { key:'calories',        label:'Calories',    unit:'',    dv:2000, type:'target' },
+  { key:'protein_g',       label:'Protein',     unit:'g',   dv:50,   type:'target' },
+  { key:'carbs_g',         label:'Carbs',       unit:'g',   dv:275,  type:'target' },
+  { key:'fat_g',           label:'Fat',         unit:'g',   dv:78,   type:'target' },
+  { key:'fiber_g',         label:'Fiber',       unit:'g',   dv:28,   type:'target' },
+  { key:'sugar_g',         label:'Sugar',       unit:'g',   dv:50,   type:'limit'  },
+  { key:'sodium_mg',       label:'Sodium',      unit:'mg',  dv:2300, type:'limit'  },
+  { key:'vitamin_a_mcg',   label:'Vitamin A',   unit:'mcg', dv:900,  type:'target' },
+  { key:'vitamin_c_mg',    label:'Vitamin C',   unit:'mg',  dv:90,   type:'target' },
+  { key:'vitamin_d_mcg',   label:'Vitamin D',   unit:'mcg', dv:20,   type:'target' },
+  { key:'vitamin_b12_mcg', label:'Vitamin B12', unit:'mcg', dv:2.4,  type:'target' },
+  { key:'calcium_mg',      label:'Calcium',     unit:'mg',  dv:1300, type:'target' },
+  { key:'iron_mg',         label:'Iron',        unit:'mg',  dv:18,   type:'target' },
+  { key:'potassium_mg',    label:'Potassium',   unit:'mg',  dv:4700, type:'target' },
+  { key:'magnesium_mg',    label:'Magnesium',   unit:'mg',  dv:420,  type:'target' },
+];
+
+function renderNutrientBar(meta, value){
+  const pct = meta.dv>0 ? (value/meta.dv*100) : 0;
+  const displayPct = Math.round(pct);
+  let barColor = 'var(--calm)';
+  if(meta.type==='limit'){
+    barColor = pct>=100 ? 'var(--danger)' : pct>=70 ? 'var(--flag)' : 'var(--calm)';
+  }
+  const widthPct = Math.min(100, Math.max(pct, 2));
+  return `
+    <div class="suspect">
+      <div class="suspect-head">
+        <span class="suspect-name">${meta.label}</span>
+        <span class="suspect-pct">${value}${meta.unit} of ${meta.dv}${meta.unit}${meta.type==='limit'?' limit':''} (${displayPct}%)</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${widthPct}%;background:${barColor};"></div></div>
+    </div>`;
+}
+
 function renderNutritionDisplay(nutrition){
   const el = $('#em-nutrition-display');
   if(!nutrition){
@@ -1148,12 +1184,20 @@ function renderNutritionDisplay(nutrition){
       <span class="tag">${nutrition.fiber_g}g fiber</span>
       <span class="tag">${nutrition.sugar_g}g sugar</span>
       <span class="tag">${nutrition.sodium_mg}mg sodium</span>
+      <span class="tag">${nutrition.vitamin_a_mcg||0}mcg vit A</span>
+      <span class="tag">${nutrition.vitamin_c_mg||0}mg vit C</span>
+      <span class="tag">${nutrition.vitamin_d_mcg||0}mcg vit D</span>
+      <span class="tag">${nutrition.vitamin_b12_mcg||0}mcg vit B12</span>
+      <span class="tag">${nutrition.calcium_mg||0}mg calcium</span>
+      <span class="tag">${nutrition.iron_mg||0}mg iron</span>
+      <span class="tag">${nutrition.potassium_mg||0}mg potassium</span>
+      <span class="tag">${nutrition.magnesium_mg||0}mg magnesium</span>
     </div>
   `;
 }
 
 function buildNutritionPrompt(name, ingredientsRaw){
-  return `You are estimating rough nutrition information for a home-cooked or common food based on its name and ingredients. This is for a personal food-tracking app — exact quantities are not provided, so treat this as one typical serving and give your best reasonable estimate, not a precise lab measurement.
+  return `You are estimating rough nutrition information for a home-cooked or common food based on its name and ingredients. This is for a personal food-tracking app — exact quantities are not provided, so treat this as one typical serving and give your best reasonable estimate, not a precise lab measurement. Vitamin and mineral content is especially hard to judge from a short ingredient list — still give your best estimate, but lean conservative rather than guessing high.
 
 Food: ${name}
 Ingredients: ${ingredientsRaw || '(not specified)'}
@@ -1166,7 +1210,15 @@ Respond in this exact JSON format, with no text outside the JSON:
   "fat_g": <number>,
   "fiber_g": <number>,
   "sugar_g": <number>,
-  "sodium_mg": <number>
+  "sodium_mg": <number>,
+  "vitamin_a_mcg": <number>,
+  "vitamin_c_mg": <number>,
+  "vitamin_d_mcg": <number>,
+  "vitamin_b12_mcg": <number>,
+  "calcium_mg": <number>,
+  "iron_mg": <number>,
+  "potassium_mg": <number>,
+  "magnesium_mg": <number>
 }
 
 All values are for one typical serving. Use 0 if genuinely negligible. Numbers only, no units in the values.`;
@@ -1179,7 +1231,12 @@ async function estimateNutritionForFood(name, ingredientsRaw){
   return {
     calories: num(result.calories), protein_g: num(result.protein_g), carbs_g: num(result.carbs_g),
     fat_g: num(result.fat_g), fiber_g: num(result.fiber_g), sugar_g: num(result.sugar_g),
-    sodium_mg: num(result.sodium_mg), estimatedAt: todayStr()
+    sodium_mg: num(result.sodium_mg),
+    vitamin_a_mcg: num(result.vitamin_a_mcg), vitamin_c_mg: num(result.vitamin_c_mg),
+    vitamin_d_mcg: num(result.vitamin_d_mcg), vitamin_b12_mcg: num(result.vitamin_b12_mcg),
+    calcium_mg: num(result.calcium_mg), iron_mg: num(result.iron_mg),
+    potassium_mg: num(result.potassium_mg), magnesium_mg: num(result.magnesium_mg),
+    estimatedAt: todayStr()
   };
 }
 
@@ -1660,7 +1717,8 @@ async function addAllergy(){
 function renderNutritionTab(){
   $('#nutrition-day-title').textContent = 'Nutrition — ' + fmtDateFull(selectedDayFilter);
   const dayEntries = foodEntries.filter(e=>e.date===selectedDayFilter);
-  const totals = { calories:0, protein_g:0, carbs_g:0, fat_g:0, fiber_g:0, sugar_g:0, sodium_mg:0 };
+  const totals = {};
+  NUTRIENT_META.forEach(m=> totals[m.key]=0);
   let estimatedCount = 0, missingCount = 0;
   const rows = [];
 
@@ -1669,7 +1727,7 @@ function renderNutritionTab(){
     if(!food){ return; }
     if(food.nutrition){
       estimatedCount++;
-      Object.keys(totals).forEach(k=> totals[k] += food.nutrition[k] || 0);
+      NUTRIENT_META.forEach(m=> totals[m.key] += food.nutrition[m.key] || 0);
       rows.push({ name: food.name, meal: e.meal, nutrition: food.nutrition, foodId: food.id });
     }else{
       missingCount++;
@@ -1684,22 +1742,15 @@ function renderNutritionTab(){
     summaryEl.innerHTML = `<div class="empty-state"><span class="em-mark">🔥</span>None of today's foods have a nutrition estimate yet. Add one from My Foods (edit a food → Estimate nutrition).</div>`;
   }else{
     const round = n => Math.round(n*10)/10;
+    const macroKeys = ['calories','protein_g','carbs_g','fat_g','fiber_g','sugar_g','sodium_mg'];
+    const vitaminKeys = ['vitamin_a_mcg','vitamin_c_mg','vitamin_d_mcg','vitamin_b12_mcg','calcium_mg','iron_mg','potassium_mg','magnesium_mg'];
+    const barsFor = keys => keys.map(k=> renderNutrientBar(NUTRIENT_META.find(m=>m.key===k), round(totals[k]))).join('');
     summaryEl.innerHTML = `
-      <div class="stat-row">
-        <div class="stat-box"><div class="num">${round(totals.calories)}</div><div class="lbl">calories</div></div>
-        <div class="stat-box"><div class="num">${round(totals.protein_g)}g</div><div class="lbl">protein</div></div>
-        <div class="stat-box"><div class="num">${round(totals.carbs_g)}g</div><div class="lbl">carbs</div></div>
-      </div>
-      <div class="stat-row">
-        <div class="stat-box"><div class="num">${round(totals.fat_g)}g</div><div class="lbl">fat</div></div>
-        <div class="stat-box"><div class="num">${round(totals.fiber_g)}g</div><div class="lbl">fiber</div></div>
-        <div class="stat-box"><div class="num">${round(totals.sugar_g)}g</div><div class="lbl">sugar</div></div>
-      </div>
-      <div class="stat-row">
-        <div class="stat-box"><div class="num">${round(totals.sodium_mg)}mg</div><div class="lbl">sodium</div></div>
-      </div>
+      ${barsFor(macroKeys)}
+      <div class="section-label" style="margin:14px 2px 6px;">Vitamins &amp; minerals</div>
+      ${barsFor(vitaminKeys)}
       ${missingCount>0?`<p class="hint">${missingCount} food${missingCount===1?'':'s'} today ${missingCount===1?"isn't":"aren't"} counted — no nutrition estimate yet.</p>`:''}
-      <div class="disclaimer">Estimated by AI from ingredient names, not exact quantities — treat these as a rough ballpark, not a precise count.</div>
+      <div class="disclaimer">Estimated by AI from ingredient names, not exact quantities — treat these as a rough ballpark, not a precise count. Vitamin and mineral figures are the least reliable of the bunch — they're a rougher guess than calories or macros. Daily-value targets shown are generic reference amounts (based on a standard 2,000-calorie adult diet), not personalized to you.</div>
     `;
   }
 
