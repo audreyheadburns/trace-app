@@ -1242,6 +1242,7 @@ async function estimateNutritionForFood(name, ingredientsRaw){
 
 async function autoEstimateNewFoods(foods){
   let successCount = 0;
+  let lastError = null;
   for(const food of foods){
     try{
       const nutrition = await estimateNutritionForFood(food.name, food.ingredients.join(', '));
@@ -1252,10 +1253,13 @@ async function autoEstimateNewFoods(foods){
       successCount++;
     }catch(err){
       console.error('Auto nutrition estimate failed for', food.name, err);
+      lastError = err.message;
     }
   }
   if(successCount>0){
     showToast(`Nutrition estimated for ${successCount} new food${successCount>1?'s':''}`);
+  }else if(lastError){
+    showToast(`Nutrition estimate failed: ${lastError}`, true);
   }
 }
 
@@ -1266,6 +1270,7 @@ async function estimateAllMissingNutrition(){
   const btn = $('#estimate-all-btn');
   btn.disabled = true;
   let successCount = 0;
+  let lastError = null;
   for(let i=0;i<missing.length;i++){
     btn.textContent = `Estimating ${i+1} of ${missing.length}…`;
     try{
@@ -1274,11 +1279,16 @@ async function estimateAllMissingNutrition(){
       successCount++;
     }catch(err){
       console.error('Backfill estimate failed for', missing[i].name, err);
+      lastError = err.message;
     }
   }
   renderManagerList();
   renderNutritionTab();
-  showToast(`Estimated nutrition for ${successCount} of ${missing.length} food${missing.length===1?'':'s'} — this also fills in past days that used them.`);
+  if(successCount===0 && lastError){
+    showToast(`Could not estimate any foods — ${lastError}`, true);
+  }else{
+    showToast(`Estimated nutrition for ${successCount} of ${missing.length} food${missing.length===1?'':'s'} — this also fills in past days that used them.`);
+  }
 }
 $('#estimate-all-btn').addEventListener('click', estimateAllMissingNutrition);
 function updateEstimateAllButtonLabel(){
@@ -2156,12 +2166,18 @@ async function callGemini(prompt){
     throw new Error(`Gemini API error (${res.status}): ${errText.slice(0,200) || res.statusText}`);
   }
   const data = await res.json();
-  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : null;
-  if(!text) throw new Error('Gemini returned an empty response.');
-  let parsed;
-  try{ parsed = JSON.parse(text); }
-  catch(e){ throw new Error("Could not parse Gemini's response as JSON."); }
-  return parsed;
+  const cand = data && data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts[0] ? cand.content.parts[0].text : null;
+  if(!text) throw new Error('Gemini returned an empty response' + (cand && cand.finishReason ? ` (reason: ${cand.finishReason})` : '') + '.');
+  return parseGeminiJson(text);
+}
+function parseGeminiJson(text){
+  let cleaned = text.trim();
+  if(cleaned.startsWith('```')){
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/,'').trim();
+  }
+  try{ return JSON.parse(cleaned); }
+  catch(e){ throw new Error("Could not parse Gemini's response as JSON: " + text.slice(0,150)); }
 }
 
 function dataUrlToBase64(dataUrl){
@@ -2200,12 +2216,10 @@ async function callGeminiVision(prompt, imageDataUrl){
     throw new Error(`Gemini API error (${res.status}): ${errText.slice(0,200) || res.statusText}`);
   }
   const data = await res.json();
-  const text = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : null;
-  if(!text) throw new Error('Gemini returned an empty response.');
-  let parsed;
-  try{ parsed = JSON.parse(text); }
-  catch(e){ throw new Error("Could not parse Gemini's response as JSON."); }
-  return parsed;
+  const cand = data && data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts && cand.content.parts[0] ? cand.content.parts[0].text : null;
+  if(!text) throw new Error('Gemini returned an empty response' + (cand && cand.finishReason ? ` (reason: ${cand.finishReason})` : '') + '.');
+  return parseGeminiJson(text);
 }
 
 function renderAiResult(result){
