@@ -1240,45 +1240,91 @@ async function estimateNutritionForFood(name, ingredientsRaw){
   };
 }
 
+function buildBatchNutritionPrompt(foods){
+  const list = foods.map((f,i)=> `${i}. ${f.name} — ingredients: ${f.ingredientsRaw || '(not specified)'}`).join('\n');
+  return `You are estimating rough nutrition information for a list of home-cooked or common foods, based on each one's name and ingredients. This is for a personal food-tracking app — exact quantities are not provided, so treat each as one typical serving and give your best reasonable estimate, not a precise lab measurement. Vitamin and mineral content is especially hard to judge from a short ingredient list — still give your best estimate, but lean conservative rather than guessing high.
+
+Foods:
+${list}
+
+Respond with a JSON array, one object per food, in the same order as listed, with no text outside the JSON array:
+[
+  {
+    "index": <the number shown before the food>,
+    "calories": <number>, "protein_g": <number>, "carbs_g": <number>, "fat_g": <number>,
+    "fiber_g": <number>, "sugar_g": <number>, "sodium_mg": <number>,
+    "vitamin_a_mcg": <number>, "vitamin_c_mg": <number>, "vitamin_d_mcg": <number>, "vitamin_b12_mcg": <number>,
+    "calcium_mg": <number>, "iron_mg": <number>, "potassium_mg": <number>, "magnesium_mg": <number>
+  }
+]
+
+Include exactly one object per food listed, in order, each with the matching "index". All values are for one typical serving. Use 0 if genuinely negligible. Numbers only, no units in the values.`;
+}
+
+async function estimateNutritionBatch(foods){
+  if(!geminiApiKey) throw new Error('No Gemini key saved — add one in Settings first.');
+  if(foods.length===0) return [];
+  const result = await callGemini(buildBatchNutritionPrompt(foods));
+  if(!Array.isArray(result)) throw new Error('Gemini did not return a list as expected.');
+  const num = (v)=> typeof v==='number' && isFinite(v) ? Math.max(0, Math.round(v*10)/10) : 0;
+  const out = new Array(foods.length).fill(null);
+  result.forEach(item=>{
+    const idx = item && typeof item.index==='number' ? item.index : null;
+    if(idx===null || idx<0 || idx>=foods.length) return;
+    out[idx] = {
+      calories: num(item.calories), protein_g: num(item.protein_g), carbs_g: num(item.carbs_g),
+      fat_g: num(item.fat_g), fiber_g: num(item.fiber_g), sugar_g: num(item.sugar_g),
+      sodium_mg: num(item.sodium_mg),
+      vitamin_a_mcg: num(item.vitamin_a_mcg), vitamin_c_mg: num(item.vitamin_c_mg),
+      vitamin_d_mcg: num(item.vitamin_d_mcg), vitamin_b12_mcg: num(item.vitamin_b12_mcg),
+      calcium_mg: num(item.calcium_mg), iron_mg: num(item.iron_mg),
+      potassium_mg: num(item.potassium_mg), magnesium_mg: num(item.magnesium_mg),
+      estimatedAt: todayStr()
+    };
+  });
+  return out;
+}
+
 async function autoEstimateNewFoods(foods){
-  let successCount = 0;
-  let lastError = null;
-  for(const food of foods){
-    try{
-      const nutrition = await estimateNutritionForFood(food.name, food.ingredients.join(', '));
-      food.nutrition = nutrition;
+  if(foods.length===0) return;
+  try{
+    const results = await estimateNutritionBatch(foods.map(f=>({ name: f.name, ingredientsRaw: f.ingredients.join(', ') })));
+    let successCount = 0;
+    results.forEach((nutrition, i)=>{ if(nutrition){ foods[i].nutrition = nutrition; successCount++; } });
+    if(successCount>0){
       await saveSavedFoods();
       renderManagerList();
       renderNutritionTab();
-      successCount++;
-    }catch(err){
-      console.error('Auto nutrition estimate failed for', food.name, err);
-      lastError = err.message;
+      showToast(`Nutrition estimated for ${successCount} new food${successCount>1?'s':''}`);
     }
-  }
-  if(successCount>0){
-    showToast(`Nutrition estimated for ${successCount} new food${successCount>1?'s':''}`);
-  }else if(lastError){
-    showToast(`Nutrition estimate failed: ${lastError}`, true);
+  }catch(err){
+    console.error('Auto nutrition estimate failed', err);
+    showToast(`Nutrition estimate failed: ${err.message}`, true);
   }
 }
 
+const NUTRITION_BATCH_SIZE = 10;
 async function estimateAllMissingNutrition(){
   if(!geminiApiKey){ showToast('Add your Gemini API key in Settings first', true); return; }
   const missing = savedFoods.filter(f=>!f.nutrition);
   if(missing.length===0){ showToast('All your foods already have nutrition estimates'); return; }
   const btn = $('#estimate-all-btn');
   btn.disabled = true;
+  const chunks = [];
+  for(let i=0;i<missing.length;i+=NUTRITION_BATCH_SIZE) chunks.push(missing.slice(i, i+NUTRITION_BATCH_SIZE));
   let successCount = 0;
   let lastError = null;
-  for(let i=0;i<missing.length;i++){
-    btn.textContent = `Estimating ${i+1} of ${missing.length}…`;
+  for(let c=0;c<chunks.length;c++){
+    const chunk = chunks[c];
+    btn.textContent = chunks.length>1
+      ? `Estimating batch ${c+1} of ${chunks.length} (${chunk.length} foods)…`
+      : `Estimating ${chunk.length} food${chunk.length===1?'':'s'}…`;
     try{
-      missing[i].nutrition = await estimateNutritionForFood(missing[i].name, missing[i].ingredients.join(', '));
+      const results = await estimateNutritionBatch(chunk.map(f=>({ name: f.name, ingredientsRaw: f.ingredients.join(', ') })));
+      results.forEach((nutrition, i)=>{ if(nutrition){ chunk[i].nutrition = nutrition; successCount++; } });
       await saveSavedFoods();
-      successCount++;
     }catch(err){
-      console.error('Backfill estimate failed for', missing[i].name, err);
+      console.error('Batch nutrition estimate failed', err);
       lastError = err.message;
     }
   }
