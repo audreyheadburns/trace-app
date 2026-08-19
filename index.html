@@ -212,6 +212,10 @@ textarea{resize:vertical;min-height:48px;font-family:'Inter',sans-serif;}
 .bar-fill{height:100%;background:linear-gradient(90deg, var(--flag), #DDA85E);border-radius:6px 0 0 6px;}
 .bar-baseline{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);opacity:.5;}
 .suspect-note{font-size:10.5px;color:var(--ink-faint);margin-top:4px;}
+.nutrient-toggle{margin-top:6px;}
+.nutrient-detail{margin-top:4px;}
+.nutrient-contrib{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);padding:5px 0;border-top:1px solid var(--border);}
+.nutrient-contrib:first-child{border-top:none;}
 .confidence-badge{text-transform:uppercase;font-size:10px;font-weight:700;letter-spacing:0.03em;}
 .ai-insight{font-size:13.5px;line-height:1.5;margin:0 0 12px;color:var(--ink);}
 .disclaimer{font-size:11.5px;color:var(--ink-faint);line-height:1.5;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-top:20px;}
@@ -1151,7 +1155,7 @@ const NUTRIENT_META = [
   { key:'magnesium_mg',    label:'Magnesium',   unit:'mg',  dv:420,  type:'target' },
 ];
 
-function renderNutrientBar(meta, value){
+function renderNutrientBar(meta, value, dayRows){
   const pct = meta.dv>0 ? (value/meta.dv*100) : 0;
   const displayPct = Math.round(pct);
   let barColor = 'var(--calm)';
@@ -1159,6 +1163,15 @@ function renderNutrientBar(meta, value){
     barColor = pct>=100 ? 'var(--danger)' : pct>=70 ? 'var(--flag)' : 'var(--calm)';
   }
   const widthPct = Math.min(100, Math.max(pct, 2));
+
+  const contributors = (dayRows||[])
+    .filter(r=>r.nutrition && (r.nutrition[meta.key]||0) > 0)
+    .map(r=>({ name:r.name, amount: r.nutrition[meta.key] }))
+    .sort((a,b)=> b.amount - a.amount);
+  const contribHtml = contributors.length
+    ? contributors.map(c=>`<div class="nutrient-contrib"><span>${escapeHtml(c.name)}</span><span>${c.amount}${meta.unit}</span></div>`).join('')
+    : `<p class="hint" style="margin:4px 0 0;">Nothing logged today contributes to this.</p>`;
+
   return `
     <div class="suspect">
       <div class="suspect-head">
@@ -1166,6 +1179,8 @@ function renderNutrientBar(meta, value){
         <span class="suspect-pct">${value}${meta.unit} of ${meta.dv}${meta.unit}${meta.type==='limit'?' limit':''} (${displayPct}%)</span>
       </div>
       <div class="bar-track"><div class="bar-fill" style="width:${widthPct}%;background:${barColor};"></div></div>
+      <button type="button" class="mini-link nutrient-toggle">▾ ${contributors.length} food${contributors.length===1?'':'s'}</button>
+      <div class="nutrient-detail" style="display:none;">${contribHtml}</div>
     </div>`;
 }
 
@@ -1800,14 +1815,21 @@ function renderNutritionTab(){
     const round = n => Math.round(n*10)/10;
     const macroKeys = ['calories','protein_g','carbs_g','fat_g','fiber_g','sugar_g','sodium_mg'];
     const vitaminKeys = ['vitamin_a_mcg','vitamin_c_mg','vitamin_d_mcg','vitamin_b12_mcg','calcium_mg','iron_mg','potassium_mg','magnesium_mg'];
-    const barsFor = keys => keys.map(k=> renderNutrientBar(NUTRIENT_META.find(m=>m.key===k), round(totals[k]))).join('');
+    const barsFor = keys => keys.map(k=> renderNutrientBar(NUTRIENT_META.find(m=>m.key===k), round(totals[k]), rows)).join('');
     summaryEl.innerHTML = `
       ${barsFor(macroKeys)}
       <div class="section-label" style="margin:14px 2px 6px;">Vitamins &amp; minerals</div>
       ${barsFor(vitaminKeys)}
       ${missingCount>0?`<p class="hint">${missingCount} food${missingCount===1?'':'s'} today ${missingCount===1?"isn't":"aren't"} counted — no nutrition estimate yet.</p>`:''}
-      <div class="disclaimer">Estimated by AI from ingredient names, not exact quantities — treat these as a rough ballpark, not a precise count. Vitamin and mineral figures are the least reliable of the bunch — they're a rougher guess than calories or macros. Daily-value targets shown are generic reference amounts (based on a standard 2,000-calorie adult diet), not personalized to you.</div>
     `;
+    $$('.nutrient-toggle', summaryEl).forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const detail = btn.nextElementSibling;
+        const open = detail.style.display !== 'none';
+        detail.style.display = open ? 'none' : 'block';
+        btn.textContent = btn.textContent.replace(/^./, open ? '▾' : '▴');
+      });
+    });
   }
 
   const listEl = $('#nutrition-food-list');
