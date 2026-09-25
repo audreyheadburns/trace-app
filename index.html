@@ -2019,6 +2019,15 @@ function buildExportMarkdown(from, to){
       md += `| ${f.date} | ${f.severity} | ${mdEscape(loc)} | ${mdEscape(f.notes)} |\n`;
     });
   }
+  const dayNoteDates = Object.keys(dayNotes).filter(d=> d>=from && d<=to).sort();
+  md += `\n## Day notes (${dayNoteDates.length})\n`;
+  if(dayNoteDates.length===0) md += '_None in this range._\n';
+  else{
+    md += '| Date | Notes |\n|---|---|\n';
+    dayNoteDates.forEach(d=>{
+      md += `| ${d} | ${mdEscape(dayNotes[d])} |\n`;
+    });
+  }
   return md;
 }
 
